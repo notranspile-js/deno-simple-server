@@ -1,20 +1,25 @@
-
 import { ServerRequest } from "./deps.ts";
 
-import { HttpHandler } from "./types.ts";
+import { HttpHandler, SimpleLogger } from "./types.ts";
+import SimpleRequest from "./SimpleRequest.ts";
 
-const encoder = new TextEncoder();
-
-export default async (handler: HttpHandler, req: ServerRequest) => {
+export default async (logger: SimpleLogger, handler: HttpHandler, req: ServerRequest) => {
   try {
-    const resp = await handler(req);
-    await req.respond(resp);
+    logger.info(`[http] request, method: [${req.method}], url: [${req.url}]`);
+    const sreq = new SimpleRequest(req);
+    const resp = await handler(sreq);
+    await sreq.respond(resp);
   } catch (e) {
-    // todo: fallback
-    console.log(e);
+    const err = e?.stack || String(e); 
+    logger.error(err);
     await req.respond({
       status: 500,
-      body: encoder.encode(e.message),
+      headers: new Headers({
+        "Content-Type": "application/json"
+      }),
+      body: JSON.stringify({
+        error: "500 Server Error"
+      }, null, 4)
     });
   }
-}
+};

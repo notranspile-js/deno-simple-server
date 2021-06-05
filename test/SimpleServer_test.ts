@@ -1,25 +1,27 @@
 
-import { assertEquals, readAll } from "./test_deps.ts";
+import { assertEquals } from "./test_deps.ts";
 
-import FileServer from "../FileServer.ts";
+import SimpleRequest from "../SimpleRequest.ts";
+import SimpleServer from "../SimpleServer.ts";
 
-const decoder = new TextDecoder();
+type Msg = {
+  foo: number,
+  bar?: number
+};
 
-Deno.test("simple", async () => {
-  const server = new FileServer({
+Deno.test("SimpleServer", async () => {
+  const server = new SimpleServer({
     listen: {
       port: 8080
     },
     http: {
       path: "/",
-      handler: async (req) => {
-        const arr = await readAll(req.body);
-        const str = decoder.decode(arr);
-        const obj = JSON.parse(str);
+      handler: async (req: SimpleRequest) => {
+        const obj = await req.json<Msg>();
         obj.bar = 43;
         return {
           status: 200,
-          body: JSON.stringify(obj)
+          json: obj
         };
       }
     }

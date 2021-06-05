@@ -2,14 +2,18 @@ export type {
   HTTPOptions,
   HTTPSOptions,
   Response,
-  ServerRequest,
 } from "https://deno.land/std@0.97.0/http/server.ts";
 
 export {
-  serve,
   Server,
+  ServerRequest,
+  serve,
   serveTLS,
 } from "https://deno.land/std@0.97.0/http/server.ts";
+
+export {
+  readAll
+} from "https://deno.land/std@0.97.0/io/util.ts";
 
 export type {
   WebSocket,
