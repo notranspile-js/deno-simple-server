@@ -1,18 +1,36 @@
 
 import {
-  Server,
-  ServerRequest
+  HTTPOptions,
+  HTTPSOptions,
+  Response,
+  ServerRequest,
+  WebSocket,
+  WebSocketEvent
 } from "./deps.ts";
 
-type FileServer = {
-  srv: Server,
-  close: () => void,
-  broadcastWebsocket: (msg: string) => Promise<void>
+export type FilesConfig = {
+  path: string,
+  rootDirectory: string
 };
 
-type HttpJsonHandler = (request: ServerRequest) => Promise<string>;
+export type HttpHandler = (req: ServerRequest) => Promise<Response>;
 
-export type {
-  FileServer,
-  HttpJsonHandler
+export type HttpConfig = {
+  path: string,
+  handler: HttpHandler
+};
+
+export type WebSocketHandler = (sock: WebSocket, ev: WebSocketEvent) => Promise<void>
+
+export type WebSocketConfig = {
+  path: string,
+  handler?: WebSocketHandler
+}
+
+export type ServerConfig = {
+  listen: HTTPOptions | HTTPSOptions,
+  files?: FilesConfig,
+  http?: HttpConfig,
+  websocket?: WebSocketConfig,
+  rootRedirect?: string 
 };
