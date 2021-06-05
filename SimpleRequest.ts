@@ -38,15 +38,23 @@ export default class SimpleRequest {
     return this.req.body;
   }
 
-  respond(r: SimpleResponse) {
+  get done(): Promise<Error | undefined> {
+    return this.req.done;
+  }
+
+  get impl(): ServerRequest {
+    return this.req;
+  }
+
+  async respond(r: SimpleResponse) {
     if (r.json) {
       r.body = JSON.stringify(r.json, null, 4);
       if (!r.headers) {
         r.headers = new Headers();
       }
-      r.headers.append("Content-Type", "application/json");
+      r.headers.set("content-type", "application/json");
     }
-    this.req.respond(r);
+    await this.req.respond(r);
   }
 
 }

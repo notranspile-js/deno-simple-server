@@ -19,6 +19,7 @@ export type JsonValue =
 export type FilesConfig = {
   path: string;
   rootDirectory: string;
+  dirListingEnabled: boolean;
 };
 
 export interface SimpleResponse extends Response {
@@ -55,3 +56,10 @@ export type ServerConfig = {
   rootRedirect?: string;
   logger?: SimpleLogger
 };
+
+export type EntryInfo = {
+  size: string;
+  url: string;
+  name: string;
+  isDirectory: boolean;
+}
