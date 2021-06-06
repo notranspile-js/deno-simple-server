@@ -1,12 +1,15 @@
 import { ServerRequest, readAll } from "./deps.ts";
 import { JsonValue, SimpleResponse } from "./types.ts";
+import SimpleServer from "./SimpleServer.ts";
 
 const decoder = new TextDecoder();
 
 export default class SimpleRequest {
+  server: SimpleServer;
   req: ServerRequest;
 
-  constructor(req: ServerRequest) {
+  constructor(server: SimpleServer, req: ServerRequest) {
+    this.server = server;
     this.req = req;
   }
 

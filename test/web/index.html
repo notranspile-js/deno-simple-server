@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    var ws = null;
+    function openConn() {
+      var url = "ws://127.0.0.1:8080/websocket";
+      if (null === ws) {
+        console.log("Opening: [" + url + "]");
+        ws = new WebSocket(url);
+        ws.addEventListener("message", function (event) {
+          console.log("Receiving: [" + event.data + "]");
+          var area = document.getElementById("resp");
+          area.value = event.data;
+        });
+        ws.addEventListener("close", function () {
+          console.log("Connection closed");
+        });
+      }
+    }
+    function sendRequest() {
+      var input = document.getElementById("req").value;
+      console.log("Sending: [" + input + "]");
+      ws.send(JSON.stringify({
+        msg: input
+      }, null, 4));
+    }
+    function closeConn() {
+      console.log("Closing");
+      ws.close();
+      ws = null;
+    }
+    function broadcast() {
+      var input = document.getElementById("req").value;
+      console.log("Requesting broadcast, message: [" + input + "]");
+      var http = new XMLHttpRequest();
+      http.open("POST", "/api/wsbroadcast", true);
+      http.send(JSON.stringify({
+        msg: input
+      }, null, 4));
+    }
+  </script>
+</head>
+
+<body>
+  <textarea id="req" rows="7" cols="50">hi</textarea>
+  <br>
+  <br>
+  <textarea id="resp" rows="7" cols="50"></textarea>
+  <br>
+  <br>
+  <button onclick="openConn();">Connect</button>
+  <button onclick="sendRequest();">Send</button>
+  <button onclick="broadcast();">Broadcast</button>
+  <button onclick="closeConn();">Close</button>
+</body>
+
+</html>

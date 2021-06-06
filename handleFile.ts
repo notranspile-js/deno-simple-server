@@ -143,10 +143,7 @@ export default async (
 ) => {
   try {
     const normalizedUrl = normalizeURL(req.url);
-    let fsPath = posix.join(conf.rootDirectory, normalizedUrl);
-    if (fsPath.indexOf(conf.rootDirectory) !== 0) {
-      fsPath = conf.rootDirectory;
-    }
+    const fsPath = posix.join(conf.rootDirectory, normalizedUrl);
     const fileInfo = await Deno.stat(fsPath);
     if (fileInfo.isDirectory) {
       if (conf.dirListingEnabled) {

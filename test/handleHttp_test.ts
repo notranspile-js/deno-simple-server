@@ -1,6 +1,7 @@
 import { serve } from "../deps.ts";
 import { SimpleResponse } from "../types.ts";
 import SimpleRequest from "../SimpleRequest.ts";
+import SimpleServer from "../SimpleServer.ts";
 import handleHttp from "../handleHttp.ts";
 
 import { assertEquals } from "./test_deps.ts";
@@ -11,9 +12,9 @@ type Msg = {
 };
 
 const logger = {
-  info: () => {},  
-  error: () => {}
-}
+  info: () => {},
+  error: () => {},
+};
 
 async function successHandler(req: SimpleRequest) {
   const obj = await req.json<Msg>();
@@ -30,12 +31,23 @@ function failureHandler(_: SimpleRequest): Promise<SimpleResponse> {
 
 Deno.test("HttpHandler", async () => {
   const server = serve({ port: 8080 });
+  const ss: SimpleServer = null as unknown as SimpleServer;
   const serverPromise = (async () => {
     for await (const req of server) {
       if (req.url == "/success") {
-        await handleHttp(logger, successHandler, req);
+        await handleHttp(
+          ss,
+          logger,
+          { path: "/", handler: successHandler },
+          req,
+        );
       } else {
-        await handleHttp(logger, failureHandler, req);
+        await handleHttp(
+          ss,
+          logger,
+          { path: "/", handler: failureHandler },
+          req,
+        );
       }
     }
   })();
@@ -64,7 +76,7 @@ Deno.test("HttpHandler", async () => {
     assertEquals(resp.headers.get("Content-Type"), "application/json");
     const obj = await resp.json();
     assertEquals(obj, {
-      error: "500 Server Error"
+      error: "500 Server Error",
     });
   }
 

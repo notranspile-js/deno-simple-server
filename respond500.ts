@@ -5,7 +5,7 @@ import { SimpleLogger } from "./types.ts";
 export default async (logger: SimpleLogger, req: ServerRequest, e: any) => {
   const err = e?.stack || String(e);
   const msg =
-    `[http] Server Error, method: [${req.method}], url: [${req.url}], error: \n${err}`;
+    `Server Error, method: [${req.method}], url: [${req.url}], error: \n${err}`;
   logger.error(msg);
   const headers = new Headers();
   headers.set("content-type", "application/json");

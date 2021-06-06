@@ -19,3 +19,8 @@ export type {
   WebSocket,
   WebSocketEvent,
 } from "https://deno.land/std@0.97.0/ws/mod.ts";
+
+export {
+  acceptWebSocket,
+  isWebSocketCloseEvent,
+} from "https://deno.land/std@0.97.0/ws/mod.ts";
