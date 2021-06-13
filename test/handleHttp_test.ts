@@ -52,6 +52,7 @@ Deno.test("HttpHandler", async () => {
     for await (const req of server) {
       if (req.url == "/success") {
         await handleHttp(
+          () => {},
           ss,
           logger,
           { path: "/", handler: successHandler },
@@ -59,6 +60,7 @@ Deno.test("HttpHandler", async () => {
         );
       } else {
         await handleHttp(
+          () => {},
           ss,
           logger,
           { path: "/", handler: failureHandler },

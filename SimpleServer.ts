@@ -21,14 +21,17 @@ import LoggerWrapper from "./LoggerWrapper.ts";
 import handleHttp from "./handleHttp.ts";
 import handleFile from "./handleFile.ts";
 import handleWebSocket from "./handleWebSocket.ts";
+import respond302 from "./respond302.ts";
 import respond404 from "./respond404.ts";
 
 export default class SimpleServer {
   conf: ServerConfig;
   logger: LoggerWrapper;
   srv: Server;
+  activeHandlers: Map<number, Promise<void>>;
   activeWebSockets: Set<WebSocket>;
-  done: Promise<void>;
+  counter: number;
+  closing: boolean;
 
   constructor(conf: ServerConfig) {
     this.conf = conf;
@@ -38,20 +41,27 @@ export default class SimpleServer {
     } else {
       this.srv = serve(conf.listen);
     }
+    this.activeHandlers = new Map();
     this.activeWebSockets = new Set();
+    this.counter = 0;
+    this.closing = false;
 
-    // receive requests
-    this.done = this._iterateRequests();
+    // receive requests, cannot be waited upon
+    this._iterateRequests();
   }
 
   async close(): Promise<void> {
+    this.closing = true;
     this.srv.close();
-    await this.done;
+    await this._cleanup();
   }
 
   async broadcastWebsocket(
     msg: string | { [key: string]: JsonValue } | JsonValue[],
   ) {
+    if (this.closing) {
+      return;
+    }
     let st = "";
     if ("string" !== typeof msg) {
       st = JSON.stringify(msg, null, 4);
@@ -72,20 +82,49 @@ export default class SimpleServer {
 
   async _iterateRequests() {
     for await (const req of this.srv) {
+      const { id, untrack } = this._createUntracker();
       if (this.conf.http && req.url.startsWith(this.conf.http.path)) {
-        handleHttp(this, this.logger, this.conf.http, req);
+        const pr = handleHttp(untrack, this, this.logger, this.conf.http, req);
+        this.activeHandlers.set(id, pr);
       } else if (this.conf.files && req.url.startsWith(this.conf.files.path)) {
-        handleFile(this.logger, this.conf.files, req);
+        const pr = handleFile(untrack, this.logger, this.conf.files, req);
+        this.activeHandlers.set(id, pr);
       } else if (this.conf.websocket && req.url === this.conf.websocket.path) {
-        handleWebSocket(
+        const pr = handleWebSocket(
+          untrack,
           this.logger,
           this.conf.websocket,
           this.activeWebSockets,
           req,
         );
+        this.activeHandlers.set(id, pr);
+      } else if ("/" === req.url && this.conf.rootRedirectLocation) {
+        respond302(this.logger, req, this.conf.rootRedirectLocation);
       } else {
         respond404(this.logger, req);
       }
     }
+  }
+
+  async _cleanup() {
+    const promises = [];
+    for (const [_, pr] of this.activeHandlers.entries()) {
+      promises.push(pr);
+    }
+    // await
+    try {
+      await Promise.allSettled(promises);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  _createUntracker() {
+    const id = this.counter++;
+    const activeHandlers = this.activeHandlers;
+    const untrack = () => {
+      activeHandlers.delete(id);
+    };
+    return { id, untrack };
   }
 }

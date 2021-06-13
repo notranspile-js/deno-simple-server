@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 
-export {
-  // assert,
-  assertEquals,
-} from "https://deno.land/std@0.97.0/testing/asserts.ts";
+import { ServerRequest } from "./deps.ts";
+import { SimpleLogger } from "./types.ts";
 
-export { readLines } from "https://deno.land/std@0.97.0/io/bufio.ts";
-
-export { dirname, join } from "https://deno.land/std@0.97.0/path/mod.ts";
-
-export { readAll } from "https://deno.land/std@0.97.0/io/util.ts";
+export default async (logger: SimpleLogger, req: ServerRequest, location: string) => {
+  logger.info(`Redirecting from: [${req.url}] to [${location}]`);
+  const headers = new Headers();
+  headers.set("location", location);
+  try {
+    await req.respond({
+      status: 302,
+      headers,
+    });
+  } catch (_) {
+    // ignore
+  }
+};

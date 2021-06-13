@@ -22,6 +22,7 @@ import SimpleServer from "./SimpleServer.ts";
 import respond500 from "./respond500.ts";
 
 export default async (
+  untrack: () => void,
   server: SimpleServer,
   logger: SimpleLogger,
   conf: HttpConfig,
@@ -34,5 +35,7 @@ export default async (
     await sreq.respond(resp);
   } catch (e) {
     respond500(logger, req, e);
+  } finally {
+    untrack();
   }
 };

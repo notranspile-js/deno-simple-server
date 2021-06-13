@@ -153,6 +153,7 @@ async function respondNoThrow(
 }
 
 export default async (
+  untrack: () => void,
   logger: SimpleLogger,
   conf: FilesConfig,
   req: ServerRequest,
@@ -183,5 +184,7 @@ export default async (
     } else {
       respond500(logger, req, e);
     }
+  } finally {
+    untrack();
   }
 };

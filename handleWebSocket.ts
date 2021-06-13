@@ -40,21 +40,6 @@ async function callHandler(
   }
 }
 
-async function handleSock(
-  logger: SimpleLogger,
-  conf: WebSocketConfig,
-  sock: WebSocket,
-) {
-  for await (const ev of sock) {
-    if (conf.handler) {
-      await callHandler(logger, conf.handler, sock, ev);
-    }
-    if (isWebSocketCloseEvent(ev)) {
-      break;
-    }
-  }
-}
-
 async function handleSockNothrow(
   logger: SimpleLogger,
   conf: WebSocketConfig,
@@ -64,7 +49,14 @@ async function handleSockNothrow(
   try {
     active.add(sock);
     logger.info(`WebSocket connection opened, id: [${sock.conn.rid}]`);
-    await handleSock(logger, conf, sock);
+    for await (const ev of sock) {
+      if (conf.handler) {
+        await callHandler(logger, conf.handler, sock, ev);
+      }
+      if (isWebSocketCloseEvent(ev)) {
+        break;
+      }
+    }
   } catch (_) {
     // ignore
   } finally {
@@ -81,21 +73,29 @@ async function handleSockNothrow(
 }
 
 export default async (
+  untrack: () => void,
   logger: SimpleLogger,
   conf: WebSocketConfig,
   active: Set<WebSocket>,
   req: ServerRequest,
 ) => {
+  const { conn, r: bufReader, w: bufWriter, headers } = req;
+  let sock = null;
   try {
-    const { conn, r: bufReader, w: bufWriter, headers } = req;
-    const sock = await acceptWebSocket({
+    sock = await acceptWebSocket({
       conn,
       bufReader,
       bufWriter,
       headers,
     });
-    handleSockNothrow(logger, conf, active, sock);
   } catch (e) {
     respond500(logger, req, e);
+  }
+  try {
+    if (null != sock) {
+      await handleSockNothrow(logger, conf, active, sock);
+    }
+  } finally {
+    untrack();
   }
 };

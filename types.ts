@@ -69,7 +69,7 @@ export type ServerConfig = {
   files?: FilesConfig;
   http?: HttpConfig;
   websocket?: WebSocketConfig;
-  rootRedirect?: string;
+  rootRedirectLocation?: string;
   logger?: SimpleLogger;
 };
 
