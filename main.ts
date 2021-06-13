@@ -33,5 +33,4 @@ if (import.meta.main) {
   });
   console.log(`Server started, url: [http://127.0.0.1:${port}] ...`);
   // serve forever
-  await server.done;
 }
