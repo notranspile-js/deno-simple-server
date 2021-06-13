@@ -157,9 +157,11 @@ export default async (
   conf: FilesConfig,
   req: ServerRequest,
 ) => {
+  let fsPath = "";
   try {
-    const normalizedUrl = normalizeURL(req.url);
-    const fsPath = posix.join(conf.rootDirectory, normalizedUrl);
+    const relativeUrl = "/" + req.url.substring(conf.path.length);
+    const normalizedUrl = normalizeURL(relativeUrl);
+    fsPath = posix.join(conf.rootDirectory, normalizedUrl);
     const fileInfo = await Deno.stat(fsPath);
     if (fileInfo.isDirectory) {
       if (conf.dirListingEnabled) {
@@ -173,6 +175,7 @@ export default async (
       respondNoThrow(logger, req, resp);
     }
   } catch (e) {
+    logger.error(`Error serving file, path: [${fsPath}]`);
     if (e instanceof URIError) {
       respond400(logger, req);
     } else if (e instanceof Deno.errors.NotFound) {
