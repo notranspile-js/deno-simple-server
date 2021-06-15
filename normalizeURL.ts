@@ -18,20 +18,14 @@ import { posix } from "./deps.ts";
 
 export default (url: string): string => {
   let normalizedUrl = url;
+  if (!normalizedUrl.startsWith("/")) {
+    normalizedUrl= `/${normalizedUrl}`;
+  }
+
   try {
     normalizedUrl = decodeURI(normalizedUrl);
   } catch (e) {
     if (!(e instanceof URIError)) {
-      throw e;
-    }
-  }
-
-  try {
-    //allowed per https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html
-    const absoluteURI = new URL(normalizedUrl);
-    normalizedUrl = absoluteURI.pathname;
-  } catch (e) { //wasn't an absoluteURI
-    if (!(e instanceof TypeError)) {
       throw e;
     }
   }

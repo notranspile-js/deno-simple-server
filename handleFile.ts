@@ -86,11 +86,11 @@ async function serveFile(
 }
 
 async function serveDir(
-  rootDirectory: string,
+  conf: FilesConfig,
   req: ServerRequest,
   dirPath: string,
 ): Promise<Response> {
-  const dirUrl = `/${posix.relative(rootDirectory, dirPath)}`;
+  const dirUrl = `/${posix.relative(conf.rootDirectory, dirPath)}`;
   const listEntry: EntryInfo[] = [];
 
   // if ".." makes sense
@@ -114,7 +114,7 @@ async function serveDir(
     listEntry.push({
       size: entry.isFile ? fileLenToString(fileInfo.size ?? 0) : "",
       name: `${entry.name}${entry.isDirectory ? "/" : ""}`,
-      url: `${fileUrl}${entry.isDirectory ? "/" : ""}`,
+      url: `${conf.path}${fileUrl}${entry.isDirectory ? "/" : ""}`,
       isDirectory: entry.isDirectory
     });
   }
@@ -160,13 +160,13 @@ export default async (
 ) => {
   let fsPath = "";
   try {
-    const relativeUrl = "/" + req.url.substring(conf.path.length);
+    const relativeUrl = req.url.substring(conf.path.length);
     const normalizedUrl = normalizeURL(relativeUrl);
     fsPath = posix.join(conf.rootDirectory, normalizedUrl);
     const fileInfo = await Deno.stat(fsPath);
     if (fileInfo.isDirectory) {
       if (conf.dirListingEnabled) {
-        const resp = await serveDir(conf.rootDirectory, req, fsPath);
+        const resp = await serveDir(conf, req, fsPath);
         respondNoThrow(logger, req, resp);
       } else {
         throw new Deno.errors.NotFound();
