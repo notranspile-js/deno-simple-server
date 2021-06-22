@@ -78,7 +78,7 @@ console.log("Server started, url: [http://127.0.0.1:8080/] ...");
 #### Graceful shutdown
 
 ```
-const server = new Server(...);
+const server = new SimpleServer(...);
 console.log("Press Enter to stop");
 for await (const _ of readLines(Deno.stdin)) {
   break;
