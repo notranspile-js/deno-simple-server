@@ -105,16 +105,16 @@ async function serveDir(
 
   for await (const entry of Deno.readDir(dirPath)) {
     const filePath = posix.join(dirPath, entry.name);
-    const fileUrl = posix.join(dirUrl, entry.name);
     if (entry.name === "index.html" && entry.isFile) {
       // in case index.html as dir...
       return serveFile(req, filePath);
     }
+    const fileUrl = posix.join(dirUrl, entry.name);
     const fileInfo = await Deno.stat(filePath);
     listEntry.push({
       size: entry.isFile ? fileLenToString(fileInfo.size ?? 0) : "",
       name: `${entry.name}${entry.isDirectory ? "/" : ""}`,
-      url: `${conf.path}${fileUrl}${entry.isDirectory ? "/" : ""}`,
+      url: posix.normalize(`${conf.path}${fileUrl}${entry.isDirectory ? "/" : ""}`),
       isDirectory: entry.isDirectory
     });
   }

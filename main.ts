@@ -29,8 +29,13 @@ if (import.meta.main) {
       path: "/",
       rootDirectory: Deno.cwd(),
       dirListingEnabled: true
-    }
+    },
+    logger: {
+      info: (msg: string) => console.log(msg),
+      error: (msg: string) => console.log(msg),
+    },
   });
   console.log(`Server started, url: [http://127.0.0.1:${port}] ...`);
   // serve forever
+  await server.running;
 }

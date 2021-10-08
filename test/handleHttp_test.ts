@@ -45,15 +45,15 @@ function failureHandler(_: SimpleRequest): Promise<SimpleResponse> {
   throw new Error("Failure Handler");
 }
 
-Deno.test("HttpHandler", async () => {
+Deno.test("handleHttp", async () => {
   const server = serve({ port: 8080 });
-  const ss: SimpleServer = null as unknown as SimpleServer;
+  const dummy: SimpleServer = null as unknown as SimpleServer;
   const serverPromise = (async () => {
     for await (const req of server) {
       if (req.url == "/success") {
         await handleHttp(
           () => {},
-          ss,
+          dummy,
           logger,
           { path: "/", handler: successHandler },
           req,
@@ -61,7 +61,7 @@ Deno.test("HttpHandler", async () => {
       } else {
         await handleHttp(
           () => {},
-          ss,
+          dummy,
           logger,
           { path: "/", handler: failureHandler },
           req,

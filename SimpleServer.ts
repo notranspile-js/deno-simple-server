@@ -32,6 +32,7 @@ export default class SimpleServer {
   activeWebSockets: Set<WebSocket>;
   counter: number;
   closing: boolean;
+  closeListeners: (() => void)[];
 
   constructor(conf: ServerConfig) {
     this.conf = conf;
@@ -45,15 +46,24 @@ export default class SimpleServer {
     this.activeWebSockets = new Set();
     this.counter = 0;
     this.closing = false;
+    this.closeListeners = [];
 
     // receive requests, cannot be waited upon
     this._iterateRequests();
   }
 
   async close(): Promise<void> {
+    this.logger.info("Closing server ...");
     this.closing = true;
     this.srv.close();
     await this._cleanup();
+    this.logger.info("Server closed");
+  }
+
+  get running(): Promise<void> {
+    return new Promise((resolve) => {
+      this.closeListeners.push(resolve);
+    });
   }
 
   async broadcastWebsocket(
@@ -108,14 +118,21 @@ export default class SimpleServer {
 
   async _cleanup() {
     const promises = [];
+    for (const ws of this.activeWebSockets) {
+      const pr = this._closeWebSocket(ws);
+      promises.push(pr)
+    }
     for (const [_, pr] of this.activeHandlers.entries()) {
       promises.push(pr);
     }
     // await
     try {
       await Promise.allSettled(promises);
-    } catch (_) {
-      // ignore
+    } catch (e) {
+      this.logger.error(e);
+    }
+    for (const resolve of this.closeListeners) {
+      resolve();
     }
   }
 
@@ -126,5 +143,15 @@ export default class SimpleServer {
       activeHandlers.delete(id);
     };
     return { id, untrack };
+  }
+
+  async _closeWebSocket(sock: WebSocket): Promise<void> {
+    try {
+      if (!sock.isClosed) {
+        await sock.close();
+      }
+    } catch(e) {
+      this.logger.error(e);
+    }
   }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assertEquals } from "./test_deps.ts";
+import { assert, assertEquals } from "./test_deps.ts";
 import { SimpleRequest, SimpleServer } from "../mod.ts";
 
 type Msg = {
@@ -22,7 +22,7 @@ type Msg = {
   bar?: number;
 };
 
-Deno.test("SimpleServer", async () => {
+Deno.test("SimpleServer_json", async () => {
   const server = new SimpleServer({
     listen: {
       port: 8080,
@@ -51,4 +51,19 @@ Deno.test("SimpleServer", async () => {
     bar: 43,
   });
   await server.close();
+});
+
+Deno.test("SimpleServer_await_running", async () => {
+  const server = new SimpleServer({
+    listen: {
+      port: 8080,
+    }
+  });
+  let awaited = false;
+  setTimeout(() => {
+    awaited = true;
+    server.close();
+  }, 0);
+  await server.running;
+  assert(awaited);
 });
