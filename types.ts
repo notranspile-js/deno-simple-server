@@ -14,14 +14,6 @@
  * limitations under the License.
  */
 
-import {
-  HTTPOptions,
-  HTTPSOptions,
-  Response,
-  WebSocket,
-  WebSocketEvent,
-} from "./deps.ts";
-
 import SimpleRequest from "./SimpleRequest.ts";
 
 export type JsonValue =
@@ -38,17 +30,22 @@ export type FilesConfig = {
   dirListingEnabled: boolean;
 };
 
-export interface SimpleResponse extends Response {
+export interface SimpleResponse {
+  status?: number;
+  statusText?: string;
+  headers?: Headers;
+  body?: BodyInit;
   json?: { [key: string]: JsonValue } | JsonValue[];
 }
 
-export type HttpHandler = (req: SimpleRequest) => Promise<SimpleResponse>;
+export type HttpHandler = (req: SimpleRequest) => Promise<SimpleResponse | Response>;
 
 export type HttpConfig = {
   path: string;
   handler: HttpHandler;
 };
 
+/*
 export type WebSocketHandler = (
   sock: WebSocket,
   ev: WebSocketEvent,
@@ -58,6 +55,7 @@ export type WebSocketConfig = {
   path: string;
   handler?: WebSocketHandler;
 };
+*/
 
 export type SimpleLogger = {
   info: (msg: string) => void;
@@ -65,10 +63,10 @@ export type SimpleLogger = {
 };
 
 export type ServerConfig = {
-  listen: HTTPOptions | HTTPSOptions;
+  listen: Deno.ListenOptions | Deno.ListenOptions;
   files?: FilesConfig;
   http?: HttpConfig;
-  websocket?: WebSocketConfig;
+  // websocket?: WebSocketConfig;
   rootRedirectLocation?: string;
   logger?: SimpleLogger;
 };

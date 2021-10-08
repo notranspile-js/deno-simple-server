@@ -14,66 +14,137 @@
  * limitations under the License.
  */
 
-import { ServerRequest, readAll } from "./deps.ts";
 import { JsonValue, SimpleResponse } from "./types.ts";
 import SimpleServer from "./SimpleServer.ts";
 
-const decoder = new TextDecoder();
-
 export default class SimpleRequest {
   server: SimpleServer;
-  req: ServerRequest;
+  ev: Deno.RequestEvent;
+  doneListeners: (() => Promise<void>)[]
 
-  constructor(server: SimpleServer, req: ServerRequest) {
+  constructor(server: SimpleServer, ev: Deno.RequestEvent) {
     this.server = server;
-    this.req = req;
-  }
-
-  async json<T extends JsonValue>(): Promise<T> {
-    const bin = await readAll(this.req.body);
-    const str = decoder.decode(bin);
-    return JSON.parse(str);
+    this.ev = ev;
+    this.doneListeners = [];
   }
 
   // forward calls
 
-  get url(): string {
-    return this.req.url;
+  get cache(): RequestCache {
+    return this.ev.request.cache;
   }
 
-  get method(): string {
-    return this.req.method;
+  get credentials(): RequestCredentials {
+    return this.ev.request.credentials;
+  }
+
+  get destination(): RequestDestination{
+    return this.ev.request.destination;
   }
 
   get headers(): Headers {
-    return this.req.headers;
+    return this.ev.request.headers;
   }
 
-  get contentLength(): number | null {
-    return this.req.contentLength;
+  get integrity(): string {
+    return this.ev.request.integrity;
   }
 
-  get body(): Deno.Reader {
-    return this.req.body;
+  get isHistoryNavigation(): boolean {
+    return this.ev.request.isHistoryNavigation;
   }
 
-  get done(): Promise<Error | undefined> {
-    return this.req.done;
+  get isReloadNavigation(): boolean {
+    return this.ev.request.isReloadNavigation;
   }
 
-  get impl(): ServerRequest {
-    return this.req;
+  get keepalive(): boolean {
+    return this.ev.request.keepalive;
   }
 
-  async respond(r: SimpleResponse) {
-    if (r.json) {
-      r.body = JSON.stringify(r.json, null, 4);
-      if (!r.headers) {
-        r.headers = new Headers();
+  get method(): string {
+    return this.ev.request.method;
+  }
+
+  get mode(): RequestMode {
+    return this.ev.request.mode;
+  }
+
+  get redirect(): RequestRedirect {
+    return this.ev.request.redirect;
+  }
+
+  get referrer(): string {
+    return this.ev.request.referrer;
+  }
+
+  get referrerPolicy(): ReferrerPolicy {
+    return this.ev.request.referrerPolicy;
+  }
+
+  get signal(): AbortSignal {
+    return this.ev.request.signal;
+  }
+
+  get url(): string {
+    return this.ev.request.url;
+  }
+
+  get path(): string {
+    return new URL(this.ev.request.url).pathname;
+  }
+
+  get body(): ReadableStream<Uint8Array> | null {
+    return this.ev.request.body;
+  }
+
+  get bodyUsed(): boolean {
+    return this.ev.request.bodyUsed;
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    return await this.ev.request.arrayBuffer();
+  }
+
+  async blob(): Promise<Blob> {
+    return await this.ev.request.blob();
+  }
+
+  async formData(): Promise<FormData> {
+    return await this.ev.request.formData();
+  }
+
+  // Promise<any> replaced
+  async json<T extends JsonValue>(): Promise<T> {
+    return await this.ev.request.json();
+  }
+
+  async text(): Promise<string> {
+    return await this.ev.request.text();
+  }
+
+  async respondWith(r: SimpleResponse | Response): Promise<void> {
+    if (r instanceof Response) {
+      await this.ev.respondWith(r);
+    } else {
+      if (r.json) {
+        r.body = JSON.stringify(r.json, null, 4);
+        if (!r.headers) {
+          r.headers = new Headers();
+        }
+        r.headers.set("content-type", "application/json");
       }
-      r.headers.set("content-type", "application/json");
-    }
-    await this.req.respond(r);
-  }
+      const resp = new Response(r.body, {
+        headers: r.headers,
+        status: r.status,
+        statusText: r.statusText
+      })
 
+      await this.ev.respondWith(resp);
+
+      for (const fun of this.doneListeners) {
+        await fun();
+      }
+    }
+  }
 }

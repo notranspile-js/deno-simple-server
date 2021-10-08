@@ -14,29 +14,32 @@
  * limitations under the License.
  */
 
-import { ServerRequest } from "./deps.ts";
 import { SimpleLogger } from "./types.ts";
 
 // deno-lint-ignore no-explicit-any
-export default async (logger: SimpleLogger, req: ServerRequest, e: any) => {
+export default async (logger: SimpleLogger, ev: Deno.RequestEvent, e: any) => {
   const err = e?.stack || String(e);
   const msg =
-    `Server Error, method: [${req.method}], url: [${req.url}], error: \n${err}`;
+    `Server Error, method: [${ev.request.method}], url: [${ev.request.url}], error: \n${err}`;
   logger.error(msg);
   const headers = new Headers();
   headers.set("content-type", "application/json");
   try {
-    await req.respond({
-      status: 500,
-      headers,
-      body: JSON.stringify(
+    await ev.respondWith(
+      new Response(
+        JSON.stringify(
+          {
+            error: "500 Server Error",
+          },
+          null,
+          4,
+        ),
         {
-          error: "500 Server Error",
+          status: 500,
+          headers,
         },
-        null,
-        4,
       ),
-    });
+    );
   } catch (_) {
     // ignore
   }

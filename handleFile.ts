@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { extname, posix, Response, ServerRequest } from "./deps.ts";
+import { posix, readableStreamFromReader } from "./deps.ts";
 
 import { EntryInfo, FilesConfig, SimpleLogger } from "./types.ts";
 import dirViewerTemplate from "./dirViewerTemplate.ts";
@@ -62,34 +62,37 @@ function fileLenToString(len: number): string {
 }
 
 async function serveFile(
-  req: ServerRequest,
+  logger: SimpleLogger,
+  ev: Deno.RequestEvent,
   filePath: string,
-): Promise<Response> {
+): Promise<void> {
   const [file, fileInfo] = await Promise.all([
     Deno.open(filePath),
     Deno.stat(filePath),
   ]);
   const headers = new Headers();
   headers.set("content-length", fileInfo.size.toString());
-  const contentType = MEDIA_TYPES[extname(filePath)];
+  const contentType = MEDIA_TYPES[posix.extname(filePath)];
   if (contentType) {
     headers.set("content-type", contentType);
   }
-  req.done.then(() => {
-    file.close();
-  });
-  return {
-    status: 200,
-    body: file,
-    headers,
-  };
+  const stream = readableStreamFromReader(file);
+  respondNoThrow(
+    logger,
+    ev,
+    new Response(stream, {
+      status: 200,
+      headers,
+    }),
+  );
 }
 
 async function serveDir(
+  logger: SimpleLogger,
   conf: FilesConfig,
-  req: ServerRequest,
+  ev: Deno.RequestEvent,
   dirPath: string,
-): Promise<Response> {
+): Promise<void> {
   const dirUrl = `/${posix.relative(conf.rootDirectory, dirPath)}`;
   const listEntry: EntryInfo[] = [];
 
@@ -99,7 +102,7 @@ async function serveDir(
       size: "",
       name: "../",
       url: posix.join(dirUrl, ".."),
-      isDirectory: true
+      isDirectory: true,
     });
   }
 
@@ -107,15 +110,18 @@ async function serveDir(
     const filePath = posix.join(dirPath, entry.name);
     if (entry.name === "index.html" && entry.isFile) {
       // in case index.html as dir...
-      return serveFile(req, filePath);
+      serveFile(logger, ev, filePath);
+      return;
     }
     const fileUrl = posix.join(dirUrl, entry.name);
     const fileInfo = await Deno.stat(filePath);
     listEntry.push({
       size: entry.isFile ? fileLenToString(fileInfo.size ?? 0) : "",
       name: `${entry.name}${entry.isDirectory ? "/" : ""}`,
-      url: posix.normalize(`${conf.path}${fileUrl}${entry.isDirectory ? "/" : ""}`),
-      isDirectory: entry.isDirectory
+      url: posix.normalize(
+        `${conf.path}${fileUrl}${entry.isDirectory ? "/" : ""}`,
+      ),
+      isDirectory: entry.isDirectory,
     });
   }
   listEntry.sort((a, b) => {
@@ -132,21 +138,23 @@ async function serveDir(
   const headers = new Headers();
   headers.set("content-type", "text/html");
 
-  const res = {
-    status: 200,
-    body: page,
-    headers,
-  };
-  return res;
+  respondNoThrow(
+    logger,
+    ev,
+    new Response(page, {
+      status: 200,
+      headers,
+    }),
+  );
 }
 
 async function respondNoThrow(
   logger: SimpleLogger,
-  req: ServerRequest,
+  req: Deno.RequestEvent,
   resp: Response,
 ) {
   try {
-    await req.respond(resp);
+    await req.respondWith(resp);
   } catch (e) {
     respond500(logger, req, e);
   }
@@ -156,33 +164,32 @@ export default async (
   untrack: () => void,
   logger: SimpleLogger,
   conf: FilesConfig,
-  req: ServerRequest,
+  ev: Deno.RequestEvent,
 ) => {
   let fsPath = "";
   try {
-    const relativeUrl = req.url.substring(conf.path.length);
+    const path = new URL(ev.request.url).pathname;
+    const relativeUrl = path.substring(conf.path.length);
     const normalizedUrl = normalizeURL(relativeUrl);
     fsPath = posix.join(conf.rootDirectory, normalizedUrl);
     const fileInfo = await Deno.stat(fsPath);
     if (fileInfo.isDirectory) {
       if (conf.dirListingEnabled) {
-        const resp = await serveDir(conf, req, fsPath);
-        respondNoThrow(logger, req, resp);
+        await serveDir(logger, conf, ev, fsPath);
       } else {
         throw new Deno.errors.NotFound();
       }
     } else {
-      const resp = await serveFile(req, fsPath);
-      respondNoThrow(logger, req, resp);
+      await serveFile(logger, ev, fsPath);
     }
   } catch (e) {
     logger.error(`Error serving file, path: [${fsPath}]`);
     if (e instanceof URIError) {
-      respond400(logger, req);
+      respond400(logger, ev);
     } else if (e instanceof Deno.errors.NotFound) {
-      respond404(logger, req);
+      respond404(logger, ev);
     } else {
-      respond500(logger, req, e);
+      respond500(logger, ev, e);
     }
   } finally {
     untrack();

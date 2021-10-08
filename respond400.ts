@@ -14,27 +14,32 @@
  * limitations under the License.
  */
 
-import { ServerRequest } from "./deps.ts";
 import { SimpleLogger } from "./types.ts";
 
-export default async (logger: SimpleLogger, req: ServerRequest) => {
-  const msg = `Bad Request, method: [${req.method}], url: [${req.url}]`;
+export default async (logger: SimpleLogger, ev: Deno.RequestEvent) => {
+  const path = new URL(ev.request.url).pathname;
+  const msg =
+    `Bad Request, method: [${ev.request.method}], path: [${path}]`;
   logger.error(msg);
   const headers = new Headers();
   headers.set("content-type", "application/json");
   try {
-    await req.respond({
-      status: 400,
-      headers,
-      body: JSON.stringify(
+    await ev.respondWith(
+      new Response(
+        JSON.stringify(
+          {
+            error: "400 Bad Request",
+            path: path,
+          },
+          null,
+          4,
+        ),
         {
-          error: "400 Bad Request",
-          path: req.url,
+          status: 400,
+          headers,
         },
-        null,
-        4,
       ),
-    });
+    );
   } catch (_) {
     // ignore
   }

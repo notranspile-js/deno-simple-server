@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-import { serve, Server, serveTLS, WebSocket } from "./deps.ts";
-
 import { JsonValue, ServerConfig } from "./types.ts";
 import LoggerWrapper from "./LoggerWrapper.ts";
 import handleHttp from "./handleHttp.ts";
 import handleFile from "./handleFile.ts";
-import handleWebSocket from "./handleWebSocket.ts";
+// import handleWebSocket from "./handleWebSocket.ts";
 import respond302 from "./respond302.ts";
 import respond404 from "./respond404.ts";
 
 export default class SimpleServer {
   conf: ServerConfig;
   logger: LoggerWrapper;
-  srv: Server;
+  srv: Deno.Listener;
   activeHandlers: Map<number, Promise<void>>;
   activeWebSockets: Set<WebSocket>;
   counter: number;
@@ -37,11 +35,12 @@ export default class SimpleServer {
   constructor(conf: ServerConfig) {
     this.conf = conf;
     this.logger = new LoggerWrapper(conf.logger);
-    if ("certFile" in conf.listen) {
-      this.srv = serveTLS(conf.listen);
-    } else {
-      this.srv = serve(conf.listen);
-    }
+    // if ("certFile" in conf.listen) {
+      // todo
+      // this.srv = Deno.listenTls(conf.listen);
+    // } else {
+      this.srv = Deno.listen(conf.listen);
+    // }
     this.activeHandlers = new Map();
     this.activeWebSockets = new Set();
     this.counter = 0;
@@ -91,37 +90,45 @@ export default class SimpleServer {
   }
 
   async _iterateRequests() {
-    for await (const req of this.srv) {
-      const { id, untrack } = this._createUntracker();
-      if (this.conf.http && req.url.startsWith(this.conf.http.path)) {
-        const pr = handleHttp(untrack, this, this.logger, this.conf.http, req);
-        this.activeHandlers.set(id, pr);
-      } else if (this.conf.files && req.url.startsWith(this.conf.files.path)) {
-        const pr = handleFile(untrack, this.logger, this.conf.files, req);
-        this.activeHandlers.set(id, pr);
-      } else if (this.conf.websocket && req.url === this.conf.websocket.path) {
-        const pr = handleWebSocket(
-          untrack,
-          this.logger,
-          this.conf.websocket,
-          this.activeWebSockets,
-          req,
-        );
-        this.activeHandlers.set(id, pr);
-      } else if ("/" === req.url && this.conf.rootRedirectLocation) {
-        respond302(this.logger, req, this.conf.rootRedirectLocation);
-      } else {
-        respond404(this.logger, req);
-      }
+    for await (const tcpConn of this.srv) {
+      (async () => {
+        const httpConn = Deno.serveHttp(tcpConn);
+        for await (const ev of httpConn) {
+          const { id, untrack } = this._createUntracker();
+          const path = new URL(ev.request.url).pathname;
+          if (this.conf.http && path.startsWith(this.conf.http.path)) {
+            const pr = handleHttp(untrack, this, this.logger, this.conf.http, ev);
+            this.activeHandlers.set(id, pr);
+          } else if (this.conf.files && path.startsWith(this.conf.files.path)) {
+            const pr = handleFile(untrack, this.logger, this.conf.files, ev);
+            this.activeHandlers.set(id, pr);
+          // } else if (this.conf.websocket && url === this.conf.websocket.path) {
+            /*
+            const pr = handleWebSocket(
+              untrack,
+              this.logger,
+              this.conf.websocket,
+              this.activeWebSockets,
+              ev,
+            );
+            this.activeHandlers.set(id, pr);
+            */
+          } else if ("/" === path && this.conf.rootRedirectLocation) {
+            respond302(this.logger, ev, this.conf.rootRedirectLocation);
+          } else {
+            respond404(this.logger, ev);
+          }
+        }
+      })();
     }
   }
 
   async _cleanup() {
     const promises = [];
-    for (const ws of this.activeWebSockets) {
-      const pr = this._closeWebSocket(ws);
-      promises.push(pr)
-    }
+    // for (const ws of this.activeWebSockets) {
+      // const pr = this._closeWebSocket(ws);
+      // promises.push(pr)
+    // }
     for (const [_, pr] of this.activeHandlers.entries()) {
       promises.push(pr);
     }
@@ -145,6 +152,7 @@ export default class SimpleServer {
     return { id, untrack };
   }
 
+  /*
   async _closeWebSocket(sock: WebSocket): Promise<void> {
     try {
       if (!sock.isClosed) {
@@ -154,4 +162,5 @@ export default class SimpleServer {
       this.logger.error(e);
     }
   }
+  */
 }

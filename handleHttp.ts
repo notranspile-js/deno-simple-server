@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import { ServerRequest } from "./deps.ts";
-
 import { HttpConfig, SimpleLogger } from "./types.ts";
 import SimpleRequest from "./SimpleRequest.ts";
 import SimpleServer from "./SimpleServer.ts";
@@ -26,15 +24,16 @@ export default async (
   server: SimpleServer,
   logger: SimpleLogger,
   conf: HttpConfig,
-  req: ServerRequest,
+  ev: Deno.RequestEvent,
 ) => {
   try {
-    logger.info(`HTTP request received, method: [${req.method}], url: [${req.url}]`);
-    const sreq = new SimpleRequest(server, req);
+    const path = new URL(ev.request.url).pathname;
+    logger.info(`HTTP request received, method: [${ev.request.method}], url: [${path}]`);
+    const sreq = new SimpleRequest(server, ev);
     const resp = await conf.handler(sreq);
-    await sreq.respond(resp);
+    await sreq.respondWith(resp);
   } catch (e) {
-    respond500(logger, req, e);
+    respond500(logger, ev, e);
   } finally {
     untrack();
   }

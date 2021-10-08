@@ -14,18 +14,24 @@
  * limitations under the License.
  */
 
-import { ServerRequest } from "./deps.ts";
 import { SimpleLogger } from "./types.ts";
 
-export default async (logger: SimpleLogger, req: ServerRequest, location: string) => {
-  logger.info(`Redirecting from: [${req.url}] to [${location}]`);
+export default async (
+  logger: SimpleLogger,
+  ev: Deno.RequestEvent,
+  location: string,
+) => {
+  const path = new URL(ev.request.url).pathname;
+  logger.info(`Redirecting from: [${path}] to [${location}]`);
   const headers = new Headers();
   headers.set("location", location);
   try {
-    await req.respond({
-      status: 302,
-      headers,
-    });
+    await ev.respondWith(
+      new Response("", {
+        status: 302,
+        headers,
+      }),
+    );
   } catch (_) {
     // ignore
   }
