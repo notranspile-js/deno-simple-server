@@ -51,8 +51,11 @@ Deno.test("SimpleServer_json", async () => {
     bar: 43,
   });
   await server.close();
+  console.table(Deno.resources());
+  //console.log(Deno.metrics());
 });
 
+/*
 Deno.test("SimpleServer_await_running", async () => {
   const server = new SimpleServer({
     listen: {
@@ -67,3 +70,4 @@ Deno.test("SimpleServer_await_running", async () => {
   await server.running;
   assert(awaited);
 });
+*/

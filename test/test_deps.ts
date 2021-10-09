@@ -17,10 +17,10 @@
 export {
   assert,
   assertEquals,
-} from "https://deno.land/std@0.97.0/testing/asserts.ts";
+} from "https://deno.land/std@0.110.0/testing/asserts.ts";
 
-export { readLines } from "https://deno.land/std@0.97.0/io/bufio.ts";
+export { readLines } from "https://deno.land/std@0.110.0/io/bufio.ts";
 
-export { dirname, join } from "https://deno.land/std@0.97.0/path/mod.ts";
+export { dirname, join } from "https://deno.land/std@0.110.0/path/mod.ts";
 
-export { readAll } from "https://deno.land/std@0.97.0/io/util.ts";
+export { readAll } from "https://deno.land/std@0.110.0/io/util.ts";

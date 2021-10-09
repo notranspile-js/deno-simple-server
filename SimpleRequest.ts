@@ -18,12 +18,16 @@ import { JsonValue, SimpleResponse } from "./types.ts";
 import SimpleServer from "./SimpleServer.ts";
 
 export default class SimpleRequest {
+  id: number;
   server: SimpleServer;
+  conn: Deno.HttpConn;
   ev: Deno.RequestEvent;
   doneListeners: (() => Promise<void>)[]
 
-  constructor(server: SimpleServer, ev: Deno.RequestEvent) {
+  constructor(id: number, server: SimpleServer, conn: Deno.HttpConn, ev: Deno.RequestEvent) {
+    this.id = id;
     this.server = server;
+    this.conn = conn;
     this.ev = ev;
     this.doneListeners = [];
   }

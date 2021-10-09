@@ -14,22 +14,25 @@
  * limitations under the License.
  */
 
-import { serve } from "../deps.ts";
-import { SimpleResponse } from "../types.ts";
+import { SimpleLogger, SimpleResponse } from "../types.ts";
 import SimpleRequest from "../SimpleRequest.ts";
 import SimpleServer from "../SimpleServer.ts";
 import handleHttp from "../handleHttp.ts";
 
-import { assertEquals } from "./test_deps.ts";
+import { assert, assertEquals } from "./test_deps.ts";
 
 type Msg = {
   foo: number;
   bar?: number;
 };
 
-const logger = {
-  info: () => {},
-  error: () => {},
+const logger: SimpleLogger = {
+  info: (/* msg: string */) => {
+    // console.log(msg);
+  },
+  error: (msg: string) => {
+    assert(msg.startsWith("Server Error, method: [GET], url: [http://127.0.0.1:8080/failure]"));
+  },
 };
 
 async function successHandler(req: SimpleRequest) {
@@ -45,30 +48,45 @@ function failureHandler(_: SimpleRequest): Promise<SimpleResponse> {
   throw new Error("Failure Handler");
 }
 
-Deno.test("handleHttp", async () => {
-  const server = serve({ port: 8080 });
+const httpPromises: Promise<void>[] = [];
+const activeConns: Deno.HttpConn[] = [];
+
+async function handleTcpConn(listener: Deno.Listener): Promise<void> {
+  for await (const tcpConn of listener) {
+    const pr = handleHttpConn(tcpConn);
+    httpPromises.push(pr);
+  }
+}
+
+async function handleHttpConn(tcpConn: Deno.Conn): Promise<void> {
   const dummy: SimpleServer = null as unknown as SimpleServer;
-  const serverPromise = (async () => {
-    for await (const req of server) {
-      if (req.url == "/success") {
-        await handleHttp(
-          () => {},
-          dummy,
-          logger,
-          { path: "/", handler: successHandler },
-          req,
-        );
-      } else {
-        await handleHttp(
-          () => {},
-          dummy,
-          logger,
-          { path: "/", handler: failureHandler },
-          req,
-        );
-      }
+  const httpConn = Deno.serveHttp(tcpConn);
+  activeConns.push(httpConn);
+  for await (const ev of httpConn) {
+    const path = new URL(ev.request.url).pathname;
+    if ("/success" == path) {
+      await handleHttp(
+        () => {},
+        dummy,
+        logger,
+        { path: "/", handler: successHandler },
+        ev,
+      );
+    } else {
+      await handleHttp(
+        () => {},
+        dummy,
+        logger,
+        { path: "/", handler: failureHandler },
+        ev,
+      );
     }
-  })();
+  }
+}
+
+Deno.test("handleHttp", async () => {
+  const listener = Deno.listen({ port: 8080 });
+  const serverPromise = handleTcpConn(listener);
 
   // success
   {
@@ -98,6 +116,10 @@ Deno.test("handleHttp", async () => {
     });
   }
 
-  server.close();
+  for (const hc of activeConns) {
+    hc.close();
+  }
+  await Promise.allSettled(httpPromises);
+  listener.close();
   await serverPromise;
 });

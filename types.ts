@@ -30,7 +30,7 @@ export type FilesConfig = {
   dirListingEnabled: boolean;
 };
 
-export interface SimpleResponse {
+export type SimpleResponse = {
   status?: number;
   statusText?: string;
   headers?: Headers;

@@ -17,6 +17,7 @@
 import { posix, readableStreamFromReader } from "./deps.ts";
 
 import { EntryInfo, FilesConfig, SimpleLogger } from "./types.ts";
+import SimpleRequest from "./SimpleRequest.ts";
 import dirViewerTemplate from "./dirViewerTemplate.ts";
 import normalizeURL from "./normalizeURL.ts";
 import respond400 from "./respond400.ts";
@@ -62,7 +63,6 @@ function fileLenToString(len: number): string {
 }
 
 async function serveFile(
-  logger: SimpleLogger,
   ev: Deno.RequestEvent,
   filePath: string,
 ): Promise<void> {
@@ -77,9 +77,7 @@ async function serveFile(
     headers.set("content-type", contentType);
   }
   const stream = readableStreamFromReader(file);
-  respondNoThrow(
-    logger,
-    ev,
+  await ev.respondWith(
     new Response(stream, {
       status: 200,
       headers,
@@ -88,7 +86,6 @@ async function serveFile(
 }
 
 async function serveDir(
-  logger: SimpleLogger,
   conf: FilesConfig,
   ev: Deno.RequestEvent,
   dirPath: string,
@@ -110,7 +107,7 @@ async function serveDir(
     const filePath = posix.join(dirPath, entry.name);
     if (entry.name === "index.html" && entry.isFile) {
       // in case index.html as dir...
-      serveFile(logger, ev, filePath);
+      serveFile(ev, filePath);
       return;
     }
     const fileUrl = posix.join(dirUrl, entry.name);
@@ -137,10 +134,7 @@ async function serveDir(
 
   const headers = new Headers();
   headers.set("content-type", "text/html");
-
-  respondNoThrow(
-    logger,
-    ev,
+  await ev.respondWith(
     new Response(page, {
       status: 200,
       headers,
@@ -148,50 +142,32 @@ async function serveDir(
   );
 }
 
-async function respondNoThrow(
-  logger: SimpleLogger,
-  req: Deno.RequestEvent,
-  resp: Response,
-) {
-  try {
-    await req.respondWith(resp);
-  } catch (e) {
-    respond500(logger, req, e);
-  }
-}
-
-export default async (
-  untrack: () => void,
-  logger: SimpleLogger,
-  conf: FilesConfig,
-  ev: Deno.RequestEvent,
-) => {
+export default async (req: SimpleRequest): Promise<void> => {
   let fsPath = "";
+  const logger = req.server.logger;
+  const conf = req.server.conf.files!;
   try {
-    const path = new URL(ev.request.url).pathname;
-    const relativeUrl = path.substring(conf.path.length);
+    const relativeUrl = req.path.substring(conf.path.length);
     const normalizedUrl = normalizeURL(relativeUrl);
     fsPath = posix.join(conf.rootDirectory, normalizedUrl);
     const fileInfo = await Deno.stat(fsPath);
     if (fileInfo.isDirectory) {
       if (conf.dirListingEnabled) {
-        await serveDir(logger, conf, ev, fsPath);
+        await serveDir(conf, req.ev, fsPath);
       } else {
         throw new Deno.errors.NotFound();
       }
     } else {
-      await serveFile(logger, ev, fsPath);
+      await serveFile(req.ev, fsPath);
     }
   } catch (e) {
     logger.error(`Error serving file, path: [${fsPath}]`);
     if (e instanceof URIError) {
-      respond400(logger, ev);
+      await respond400(logger, req.ev);
     } else if (e instanceof Deno.errors.NotFound) {
-      respond404(logger, ev);
+      await respond404(logger, req.ev);
     } else {
-      respond500(logger, ev, e);
+      await respond500(logger, req.ev, e);
     }
-  } finally {
-    untrack();
   }
 };
