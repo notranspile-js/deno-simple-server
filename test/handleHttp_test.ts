@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { SimpleLogger } from "../types.ts";
 import SimpleRequest from "../SimpleRequest.ts";
 import SimpleServer from "../SimpleServer.ts";
 import handleHttp from "../handleHttp.ts";
@@ -26,15 +25,6 @@ type Msg = {
   bar?: number;
 };
 
-const logger: SimpleLogger = {
-  info: (/* msg: string */) => {
-    // console.log(msg);
-  },
-  error: (msg: string) => {
-    assert(msg.startsWith("Server Error, method: [GET], url: [http://127.0.0.1:8080/failure]"));
-  },
-};
-
 const server: SimpleServer = {
   conf: {
     http: {
@@ -42,7 +32,14 @@ const server: SimpleServer = {
       handler: requestHandler
     },
   },
-  logger: logger
+  logger: {
+    info: (/* msg: string */) => {
+      // console.log(msg);
+    },
+    error: (msg: string) => {
+      assert(msg.startsWith("Server Error, method: [GET], url: [http://127.0.0.1:8080/failure]"));
+    },
+  }
 } as unknown as SimpleServer;
 
 async function requestHandler(req: SimpleRequest) {
@@ -74,7 +71,7 @@ async function handleHttpConn(tcpConn: Deno.Conn): Promise<void> {
   const httpConn = Deno.serveHttp(tcpConn);
   activeConns.push(httpConn);
   for await (const ev of httpConn) {
-    const req = new SimpleRequest(-1, server, httpConn, ev);
+    const req = new SimpleRequest(server, ev);
     await handleHttp(req);
   }
 }
@@ -110,6 +107,8 @@ Deno.test("handleHttp", async () => {
       error: "500 Server Error",
     });
   }
+
+  // cleanup
 
   for (const hc of activeConns) {
     hc.close();

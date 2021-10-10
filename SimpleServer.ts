@@ -16,33 +16,34 @@
 
 import { ServerConfig, ServerStatus } from "./types.ts";
 import LoggerWrapper from "./LoggerWrapper.ts";
+import TrackingConn from "./TrackingConn.ts";
+import TrackingListener from "./TrackingListener.ts";
 import SimpleRequest from "./SimpleRequest.ts";
-import Tracker from "./Tracker.ts";
 import handleHttp from "./handleHttp.ts";
 import handleFile from "./handleFile.ts";
 // import handleWebSocket from "./handleWebSocket.ts";
 import respond302 from "./respond302.ts";
 import respond404 from "./respond404.ts";
+import respond500 from "./respond500.ts";
 
 export default class SimpleServer {
   conf: ServerConfig;
   logger: LoggerWrapper;
-  tracker: Tracker;
-  counter: number;
+  listener: TrackingListener;
   closing: boolean;
   onClose: (() => void)[];
 
   constructor(conf: ServerConfig) {
     this.conf = conf;
     this.logger = new LoggerWrapper(conf.logger);
+    const denoListener = Deno.listen(conf.listen);
+    this.listener = new TrackingListener(this.logger, denoListener);
 
-    const listener = Deno.listen(conf.listen);
-    const listenerOp = this._iterateConns(listener);
-
-    this.tracker = new Tracker(this.logger, listener, listenerOp);
-    this.counter = 0;
     this.closing = false;
     this.onClose = [];
+
+    const listenerOp = this._spawnListenerOp(this.listener);
+    this.listener.trackOp(listenerOp);
   }
 
   async close(): Promise<void> {
@@ -50,8 +51,12 @@ export default class SimpleServer {
       return;
     }
     this.closing = true;
-    this.logger.info("Closing server ...");
-    await this.tracker.close();
+    const st = this.status;
+    this.logger.info(`Closing server,` +
+      ` active connections: [${st.activeConnections}],` +
+      ` active requests: [${st.activeRequests}] ...`);
+    this.listener.close();
+    await this.listener.ensureDone();
     for (const fun of this.onClose) {
       try {
           fun();
@@ -68,20 +73,22 @@ export default class SimpleServer {
     });
   }
 
-  async status(): Promise<ServerStatus> {
-    return await this.tracker.status();
+  get status(): ServerStatus {
+    return this.listener.status();
   }
 
-  async _iterateConns(listener: Deno.Listener): Promise<void> {
+  async _spawnListenerOp(listener: TrackingListener): Promise<void> {
     for (;;) {
       try {
-        const tcpConn: Deno.Conn = await listener.accept();
+        const tcpConn: Deno.Conn = await listener.denoListener.accept();
         if (!tcpConn) {
           break;
         }
         const httpConn = Deno.serveHttp(tcpConn);
-        const httpConnOp = this._iterateRequests(httpConn);
-        this.tracker.trackConn(tcpConn, httpConn, httpConnOp);
+        const conn = new TrackingConn(this.logger, tcpConn, httpConn);
+        const connOp = this._spawnConnOp(conn);
+        conn.trackOp(connOp);
+        listener.trackConn(conn);
       } catch (e) {
         if (this.closing) {
           break;
@@ -91,17 +98,17 @@ export default class SimpleServer {
     }
   }
 
-  async _iterateRequests(httpConn: Deno.HttpConn): Promise<void> {
+  async _spawnConnOp(conn: TrackingConn): Promise<void> {
     for (;;) {
       try {
-        const ev = await httpConn.nextRequest();
+        const ev = await conn.httpConn.nextRequest();
         if (!ev) {
-          await this.tracker.untrackConn(httpConn);
           break;
         }
-        const req = new SimpleRequest(this._generateId(), this, httpConn, ev);
-        const reqOp = this._handleRequest(req);
-        this.tracker.trackRequest(req, reqOp);
+        const req = new SimpleRequest(this, ev);
+        const reqOp = this._spawnReqOp(conn, req);
+        req.trackOp(reqOp);
+        conn.trackRequest(req);
       } catch (e) {
         if (this.closing) {
           break;
@@ -109,9 +116,10 @@ export default class SimpleServer {
         this.logger.error(e);
       }
     }
+    this.listener.untrackConn(conn);
   }
 
-  async _handleRequest(req: SimpleRequest): Promise<void> {
+  async _spawnReqOp(conn: TrackingConn, req: SimpleRequest): Promise<void> {
     try {
       if (this.conf.http && req.path.startsWith(this.conf.http.path)) {
         await handleHttp(req);
@@ -132,22 +140,13 @@ export default class SimpleServer {
       } else {
         await respond404(this.logger, req.ev);
       }
+    } catch(e) {
+      await respond500(this.logger, req.ev, e);
     } finally {
-      this.tracker.untrackRequest(req);
+      conn.untrackRequest(req);
     }
   }
   
-  _generateId() {
-    const id = this.counter++;
-    if (id < Number.MAX_SAFE_INTEGER) {
-      return id;
-    } else {
-      this.counter = 2;
-      return 1;
-    }
-  }
-
-
   /*
   async broadcastWebsocket(
     msg: string | { [key: string]: JsonValue } | JsonValue[],

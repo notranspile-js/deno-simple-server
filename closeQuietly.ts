@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-export {
-  assert,
-  assertEquals,
-} from "https://deno.land/std@0.110.0/testing/asserts.ts";
-
-export { readLines } from "https://deno.land/std@0.110.0/io/bufio.ts";
-
-import * as path from "https://deno.land/std@0.110.0/path/mod.ts";
-export { path };
-
-export { readAll } from "https://deno.land/std@0.110.0/io/util.ts";
+export default (closer: Deno.Closer) => {
+  if (!closer) {
+    return;
+  }
+  try {
+    closer.close();
+  } catch(_) {
+    // ignore
+  }
+}

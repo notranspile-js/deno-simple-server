@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-export {
-  assert,
-  assertEquals,
-} from "https://deno.land/std@0.110.0/testing/asserts.ts";
-
-export { readLines } from "https://deno.land/std@0.110.0/io/bufio.ts";
-
-import * as path from "https://deno.land/std@0.110.0/path/mod.ts";
-export { path };
-
-export { readAll } from "https://deno.land/std@0.110.0/io/util.ts";
+export default async (pr: Promise<void> | null) => {
+  if (null == pr) {
+    return false;
+  }
+  const dummy = {};
+  try {
+    const done = await Promise.race([pr, dummy]);
+    return done == dummy;
+  } catch (_) {
+    return false;
+  }
+}

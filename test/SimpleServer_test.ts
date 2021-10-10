@@ -24,12 +24,8 @@ type Msg = {
 
 function assertStatus(status: ServerStatus): void {
   assert(!status.listenerActive, "listenerActive");
-  assert(!status.listenerOpActive, "listenerOpActive");
-  assertEquals(status.activeTcpConns, 0, "activeTcpConns");
-  assertEquals(status.activeHttpConns, 0, "activeHttpConns");
-  assertEquals(status.activeHttpConnOps, 0, "activeHttpConnOps");
+  assertEquals(status.activeConnections, 0, "activeConnections");
   assertEquals(status.activeRequests, 0, "activeRequests");
-  assertEquals(status.activeRequestOps, 0, "activeRequestOps");
 }
 
 Deno.test("SimpleServer_json", async () => {
@@ -62,7 +58,7 @@ Deno.test("SimpleServer_json", async () => {
   });
 
   await server.close();
-  assertStatus(await server.status());
+  assertStatus(server.status);
 });
 
 Deno.test("SimpleServer_await_done", async () => {
@@ -78,7 +74,7 @@ Deno.test("SimpleServer_await_done", async () => {
   });
   await server.done;
   assert(awaited);
-  assertStatus(await server.status());
+  assertStatus(server.status);
 });
 
 Deno.test("SimpleServer_slow_handler", async () => {
@@ -118,9 +114,9 @@ Deno.test("SimpleServer_slow_handler", async () => {
     }
   })
   await requestReceivedPromise;
-  const statusBefore = await server.status();
-  assertEquals(statusBefore.activeRequestOps, 1);
+  const statusBefore = server.status;
+  assertEquals(statusBefore.activeRequests, 1);
   resolveRequestHandled!();
   await server.close();
-  assertStatus(await server.status());
+  assertStatus(server.status);
 });

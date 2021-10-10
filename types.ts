@@ -73,12 +73,8 @@ export type ServerConfig = {
 
 export type ServerStatus = {
   listenerActive: boolean,
-  listenerOpActive: boolean,
-  activeTcpConns: number,
-  activeHttpConns: number,
-  activeHttpConnOps: number,
+  activeConnections: number,
   activeRequests: number
-  activeRequestOps: number
 };
 
 export type EntryInfo = {

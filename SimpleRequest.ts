@@ -18,18 +18,16 @@ import { JsonValue, SimpleResponse } from "./types.ts";
 import SimpleServer from "./SimpleServer.ts";
 
 export default class SimpleRequest {
-  id: number;
   server: SimpleServer;
-  conn: Deno.HttpConn;
   ev: Deno.RequestEvent;
-  doneListeners: (() => Promise<void>)[]
+  onDone: (() => void)[];
+  op: Promise<void> | null;
 
-  constructor(id: number, server: SimpleServer, conn: Deno.HttpConn, ev: Deno.RequestEvent) {
-    this.id = id;
+  constructor(server: SimpleServer, ev: Deno.RequestEvent) {
     this.server = server;
-    this.conn = conn;
     this.ev = ev;
-    this.doneListeners = [];
+    this.onDone = [];
+    this.op = null;
   }
 
   // forward calls
@@ -146,9 +144,34 @@ export default class SimpleRequest {
 
       await this.ev.respondWith(resp);
 
-      for (const fun of this.doneListeners) {
-        await fun();
+      for (const fun of this.onDone) {
+        try {
+          fun();
+        } catch(e) {
+          this.server.logger.error(String(e));
+        }
       }
+    }
+  }
+
+  trackOp(op: Promise<void>): void {
+    this.op = op;
+  }
+
+  get done(): Promise<void> {
+    return new Promise((resolve) => {
+      this.onDone.push(resolve);
+    });
+  }
+
+  async ensureDone(): Promise<void> {
+    if (null == this.op) {
+      return;
+    }
+    try {
+      await this.op;
+    } catch(e) {
+      this.server.logger.error(String(e));
     }
   }
 }

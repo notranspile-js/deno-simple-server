@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { dirname, join, readLines } from "./test_deps.ts";
+import { path, readLines } from "./test_deps.ts";
 import { SimpleRequest, SimpleServer } from "../mod.ts";
 
 if (import.meta.main) {
@@ -24,12 +24,12 @@ if (import.meta.main) {
     },
     files: {
       path: "/web/",
-      rootDirectory: join(dirname(import.meta.url).substring("file://".length), "web"),
+      rootDirectory: path.join(path.dirname(import.meta.url).substring("file://".length), "web"),
       dirListingEnabled: true,
     },
-    websocket: {
-      path: "/websocket",
-    },
+    // websocket: {
+      // path: "/websocket",
+    // },
     http: {
       path: "/api/",
       handler: async (req: SimpleRequest) => {
