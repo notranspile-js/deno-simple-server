@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ServerConfig } from "./types.ts";
+import { ServerConfig, ServerStatus } from "./types.ts";
 import LoggerWrapper from "./LoggerWrapper.ts";
 import SimpleRequest from "./SimpleRequest.ts";
 import Tracker from "./Tracker.ts";
@@ -29,6 +29,7 @@ export default class SimpleServer {
   logger: LoggerWrapper;
   tracker: Tracker;
   counter: number;
+  closing: boolean;
   onClose: (() => void)[];
 
   constructor(conf: ServerConfig) {
@@ -40,10 +41,15 @@ export default class SimpleServer {
 
     this.tracker = new Tracker(this.logger, listener, listenerOp);
     this.counter = 0;
+    this.closing = false;
     this.onClose = [];
   }
 
   async close(): Promise<void> {
+    if (this.closing) {
+      return;
+    }
+    this.closing = true;
     this.logger.info("Closing server ...");
     await this.tracker.close();
     for (const fun of this.onClose) {
@@ -62,6 +68,10 @@ export default class SimpleServer {
     });
   }
 
+  async status(): Promise<ServerStatus> {
+    return await this.tracker.status();
+  }
+
   async _iterateConns(listener: Deno.Listener): Promise<void> {
     for (;;) {
       try {
@@ -73,6 +83,9 @@ export default class SimpleServer {
         const httpConnOp = this._iterateRequests(httpConn);
         this.tracker.trackConn(tcpConn, httpConn, httpConnOp);
       } catch (e) {
+        if (this.closing) {
+          break;
+        }
         this.logger.error(e);
       }
     }
@@ -90,30 +103,37 @@ export default class SimpleServer {
         const reqOp = this._handleRequest(req);
         this.tracker.trackRequest(req, reqOp);
       } catch (e) {
+        if (this.closing) {
+          break;
+        }
         this.logger.error(e);
       }
     }
   }
 
   async _handleRequest(req: SimpleRequest): Promise<void> {
-    if (this.conf.http && req.path.startsWith(this.conf.http.path)) {
-      await handleHttp(req);
-    } else if (this.conf.files && req.path.startsWith(this.conf.files.path)) {
-      await handleFile(req);
-      // this.activeHandlers.set(id, pr);
-      // } else if (this.conf.websocket && url === this.conf.websocket.path) {
-      // const pr = handleWebSocket(
-      // untrack,
-      // this.logger,
-      // this.conf.websocket,
-      // this.activeWebSockets,
-      // ev,
-      // );
-      // this.activeHandlers.set(id, pr);
-    } else if ("/" === req.path && this.conf.rootRedirectLocation) {
-      await respond302(this.logger, req.ev, this.conf.rootRedirectLocation);
-    } else {
-      await respond404(this.logger, req.ev);
+    try {
+      if (this.conf.http && req.path.startsWith(this.conf.http.path)) {
+        await handleHttp(req);
+      } else if (this.conf.files && req.path.startsWith(this.conf.files.path)) {
+        await handleFile(req);
+        // this.activeHandlers.set(id, pr);
+        // } else if (this.conf.websocket && url === this.conf.websocket.path) {
+        // const pr = handleWebSocket(
+        // untrack,
+        // this.logger,
+        // this.conf.websocket,
+        // this.activeWebSockets,
+        // ev,
+        // );
+        // this.activeHandlers.set(id, pr);
+      } else if ("/" === req.path && this.conf.rootRedirectLocation) {
+        await respond302(this.logger, req.ev, this.conf.rootRedirectLocation);
+      } else {
+        await respond404(this.logger, req.ev);
+      }
+    } finally {
+      this.tracker.untrackRequest(req);
     }
   }
   

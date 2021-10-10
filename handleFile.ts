@@ -16,7 +16,7 @@
 
 import { posix, readableStreamFromReader } from "./deps.ts";
 
-import { EntryInfo, FilesConfig, SimpleLogger } from "./types.ts";
+import { EntryInfo, FilesConfig } from "./types.ts";
 import SimpleRequest from "./SimpleRequest.ts";
 import dirViewerTemplate from "./dirViewerTemplate.ts";
 import normalizeURL from "./normalizeURL.ts";

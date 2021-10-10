@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { SimpleLogger, SimpleResponse } from "../types.ts";
+import { SimpleLogger } from "../types.ts";
 import SimpleRequest from "../SimpleRequest.ts";
 import SimpleServer from "../SimpleServer.ts";
 import handleHttp from "../handleHttp.ts";
@@ -35,17 +35,29 @@ const logger: SimpleLogger = {
   },
 };
 
-async function successHandler(req: SimpleRequest) {
-  const obj = await req.json<Msg>();
-  obj.bar = 43;
-  return {
-    status: 200,
-    json: obj,
-  };
-}
+const server: SimpleServer = {
+  conf: {
+    http: {
+      path: "/",
+      handler: requestHandler
+    },
+  },
+  logger: logger
+} as unknown as SimpleServer;
 
-function failureHandler(_: SimpleRequest): Promise<SimpleResponse> {
-  throw new Error("Failure Handler");
+async function requestHandler(req: SimpleRequest) {
+  if ("/success" == req.path) {
+    const obj = await req.json<Msg>();
+    obj.bar = 43;
+    return {
+      status: 200,
+      json: obj,
+    };
+  } else if ("/failure" == req.path) {
+    throw new Error("Failure Handler");
+  } else {
+    throw new Error("Test failed.");
+  }
 }
 
 const httpPromises: Promise<void>[] = [];
@@ -59,28 +71,11 @@ async function handleTcpConn(listener: Deno.Listener): Promise<void> {
 }
 
 async function handleHttpConn(tcpConn: Deno.Conn): Promise<void> {
-  const dummy: SimpleServer = null as unknown as SimpleServer;
   const httpConn = Deno.serveHttp(tcpConn);
   activeConns.push(httpConn);
   for await (const ev of httpConn) {
-    const path = new URL(ev.request.url).pathname;
-    if ("/success" == path) {
-      await handleHttp(
-        () => {},
-        dummy,
-        logger,
-        { path: "/", handler: successHandler },
-        ev,
-      );
-    } else {
-      await handleHttp(
-        () => {},
-        dummy,
-        logger,
-        { path: "/", handler: failureHandler },
-        ev,
-      );
-    }
+    const req = new SimpleRequest(-1, server, httpConn, ev);
+    await handleHttp(req);
   }
 }
 

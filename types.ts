@@ -71,6 +71,16 @@ export type ServerConfig = {
   logger?: SimpleLogger;
 };
 
+export type ServerStatus = {
+  listenerActive: boolean,
+  listenerOpActive: boolean,
+  activeTcpConns: number,
+  activeHttpConns: number,
+  activeHttpConnOps: number,
+  activeRequests: number
+  activeRequestOps: number
+};
+
 export type EntryInfo = {
   size: string;
   url: string;
