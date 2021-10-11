@@ -99,4 +99,4 @@ export default (dirname: string, entries: EntryInfo[]) => {
       </body>
     </html>
   `;
-}
+};

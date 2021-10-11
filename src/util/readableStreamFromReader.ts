@@ -19,8 +19,9 @@
 
 const CHUNK_SIZE = 16_640;
 
-export default (reader: (Deno.Reader & Deno.Closer)): ReadableStream<Uint8Array> => {
-
+export default (
+  reader: (Deno.Reader & Deno.Closer),
+): ReadableStream<Uint8Array> => {
   return new ReadableStream({
     async pull(controller) {
       const chunk = new Uint8Array(CHUNK_SIZE);
@@ -41,4 +42,4 @@ export default (reader: (Deno.Reader & Deno.Closer)): ReadableStream<Uint8Array>
       reader.close();
     },
   });
-}
+};

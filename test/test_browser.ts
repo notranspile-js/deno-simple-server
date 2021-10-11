@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+import { SimpleRequest, SimpleServer } from "../src/mod.ts";
+
 import { path, readLines } from "./test_deps.ts";
-import { SimpleRequest, SimpleServer } from "../mod.ts";
 
 if (import.meta.main) {
   const server = new SimpleServer({
@@ -24,7 +25,10 @@ if (import.meta.main) {
     },
     files: {
       path: "/web/",
-      rootDirectory: path.join(path.dirname(import.meta.url).substring("file://".length), "web"),
+      rootDirectory: path.join(
+        path.dirname(import.meta.url).substring("file://".length),
+        "web",
+      ),
       dirListingEnabled: true,
     },
     websocket: {
@@ -44,7 +48,7 @@ if (import.meta.main) {
       info: (msg: string) => console.log(msg),
       error: (msg: string) => console.log(msg),
     },
-    rootRedirectLocation: "/web/index.html"
+    rootRedirectLocation: "/web/index.html",
   });
   console.log("Server started, url: [http://127.0.0.1:8080/] ...");
 

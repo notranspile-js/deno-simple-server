@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
-import { SimpleLogger } from "./types.ts";
+import { SimpleLogger } from "../types.ts";
 
-export default class LoggerWrapper {
-  sl?: SimpleLogger;
-
-  constructor(sl?: SimpleLogger) {
-    this.sl = sl;
+export default async (
+  logger: SimpleLogger,
+  ev: Deno.RequestEvent,
+  location: string,
+) => {
+  const path = new URL(ev.request.url).pathname;
+  logger.info(`Redirecting from: [${path}] to [${location}]`);
+  const headers = new Headers();
+  headers.set("location", location);
+  try {
+    await ev.respondWith(
+      new Response("", {
+        status: 302,
+        headers,
+      }),
+    );
+  } catch (_) {
+    // ignore
   }
-
-  info(msg: string) {
-    if (this.sl?.info) {
-      this.sl.info(msg);
-    }
-  }
-
-  error(msg: string) {
-    if (this.sl?.error) {
-      this.sl.error(msg);
-    }
-  }
-}
+};

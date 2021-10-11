@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-import * as posix from "./posix.ts";
-
-import { EntryInfo, FilesConfig } from "./types.ts";
-import SimpleRequest from "./SimpleRequest.ts";
 import dirViewerTemplate from "./dirViewerTemplate.ts";
-import normalizeURL from "./normalizeURL.ts";
-import readableStreamFromReader from "./readableStreamFromReader.ts";
-import respond400 from "./respond400.ts";
-import respond404 from "./respond404.ts";
-import respond500 from "./respond500.ts";
+import SimpleRequest from "./SimpleRequest.ts";
+import { EntryInfo, FilesConfig } from "./types.ts";
+import respond400 from "./responses/respond400.ts";
+import respond404 from "./responses/respond404.ts";
+import respond500 from "./responses/respond500.ts";
+import normalizeURL from "./util/normalizeURL.ts";
+import * as posix from "./util/posix.ts";
+import readableStreamFromReader from "./util/readableStreamFromReader.ts";
 
 const encoder = new TextEncoder();
 

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import closeQuietly from "./closeQuietly.ts";
 import SimpleRequest from "./SimpleRequest.ts";
 import { SimpleLogger, WebSocketConfig } from "./types.ts";
-import respond400 from "./respond400.ts";
-import respond500 from "./respond500.ts";
+import respond400 from "./responses/respond400.ts";
+import respond500 from "./responses/respond500.ts";
+import closeQuietly from "./util/closeQuietly.ts";
 
 async function handleSockNoThrow(
   logger: SimpleLogger,
@@ -71,7 +71,7 @@ async function handleSockNoThrow(
         });
         logger.info(
           `WebSocket close message received, id: [${id}],` +
-          ` activeOpsCount: [${activeOpsCount}]`,
+            ` activeOpsCount: [${activeOpsCount}]`,
         );
         closing = true;
         if (0 == activeOpsCount) {

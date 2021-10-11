@@ -14,28 +14,19 @@
  * limitations under the License.
  */
 
-import SimpleServer from "./SimpleServer.ts";
+import SimpleRequest from "./SimpleRequest.ts";
+import respond500 from "./responses/respond500.ts";
 
-if (import.meta.main) {
-  let port = 8080;
-  if (Deno.args.length > 0) {
-    port = parseInt(Deno.args[0]);
+export default async (req: SimpleRequest): Promise<void> => {
+  const logger = req.server.logger;
+  const conf = req.server.conf.http!;
+  try {
+    logger.info(
+      `HTTP request received, method: [${req.method}], path: [${req.path}]`,
+    );
+    const resp = await conf.handler(req);
+    await req.respondWith(resp);
+  } catch (e) {
+    await respond500(logger, req.ev, e);
   }
-  const server = new SimpleServer({
-    listen: {
-      port: port
-    },
-    files: {
-      path: "/",
-      rootDirectory: Deno.cwd(),
-      dirListingEnabled: true
-    },
-    logger: {
-      info: (msg: string) => console.log(msg),
-      error: (msg: string) => console.log(msg),
-    },
-  });
-  console.log(`Server started, url: [http://127.0.0.1:${port}] ...`);
-  // serve forever
-  await server.done;
-}
+};

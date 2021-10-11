@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-export default async (pr: Promise<void> | null) => {
-  if (null == pr) {
-    return false;
+export default (closer: Deno.Closer | null) => {
+  if (!closer) {
+    return;
   }
-  const dummy = {};
   try {
-    const done = await Promise.race([pr, dummy]);
-    return done == dummy;
+    closer.close();
   } catch (_) {
-    return false;
+    // ignore
   }
-}
+};

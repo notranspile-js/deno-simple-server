@@ -14,17 +14,24 @@
  * limitations under the License.
  */
 
-import SimpleRequest from "./SimpleRequest.ts";
-import respond500 from "./respond500.ts";
+import { SimpleLogger } from "./types.ts";
 
-export default async (req: SimpleRequest): Promise<void> => {
-  const logger = req.server.logger;
-  const conf = req.server.conf.http!;
-  try {
-    logger.info(`HTTP request received, method: [${req.method}], path: [${req.path}]`);
-    const resp = await conf.handler(req);
-    await req.respondWith(resp);
-  } catch (e) {
-    await respond500(logger, req.ev, e);
+export default class LoggerWrapper {
+  sl?: SimpleLogger;
+
+  constructor(sl?: SimpleLogger) {
+    this.sl = sl;
   }
-};
+
+  info(msg: string) {
+    if (this.sl?.info) {
+      this.sl.info(msg);
+    }
+  }
+
+  error(msg: string) {
+    if (this.sl?.error) {
+      this.sl.error(msg);
+    }
+  }
+}

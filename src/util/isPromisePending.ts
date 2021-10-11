@@ -14,29 +14,15 @@
  * limitations under the License.
  */
 
-import * as posix from "./posix.ts";
-
-export default (url: string): string => {
-  let normalizedUrl = url;
-  if (!normalizedUrl.startsWith("/")) {
-    normalizedUrl= `/${normalizedUrl}`;
+export default async (pr: Promise<void> | null) => {
+  if (null == pr) {
+    return false;
   }
-
+  const dummy = {};
   try {
-    normalizedUrl = decodeURI(normalizedUrl);
-  } catch (e) {
-    if (!(e instanceof URIError)) {
-      throw e;
-    }
+    const done = await Promise.race([pr, dummy]);
+    return done == dummy;
+  } catch (_) {
+    return false;
   }
-
-  if (normalizedUrl[0] !== "/") {
-    throw new URIError("The request URI is malformed.");
-  }
-
-  normalizedUrl = posix.normalize(normalizedUrl);
-  const startOfParams = normalizedUrl.indexOf("?");
-  return startOfParams > -1
-    ? normalizedUrl.slice(0, startOfParams)
-    : normalizedUrl;
 };

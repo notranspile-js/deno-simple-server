@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import closeQuietly from "./closeQuietly.ts";
 import SimpleConn from "./SimpleConn.ts";
 import { ServerStatus, SimpleLogger } from "./types.ts";
+import closeQuietly from "./util/closeQuietly.ts";
 
 export default class TrackingListener implements Deno.Closer {
   logger: SimpleLogger;
@@ -65,7 +65,7 @@ export default class TrackingListener implements Deno.Closer {
     if (null != this.op) {
       try {
         await this.op;
-      } catch(e) {
+      } catch (e) {
         this.logger.error(String(e));
       }
     }

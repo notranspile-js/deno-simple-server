@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import closeQuietly from "../closeQuietly.ts";
-import SimpleConn from "../SimpleConn.ts";
-import SimpleRequest from "../SimpleRequest.ts";
-import SimpleServer from "../SimpleServer.ts";
-import handleWebSocket from "../handleWebSocket.ts";
+import handleWebSocket from "../src/handleWebSocket.ts";
+import SimpleConn from "../src/SimpleConn.ts";
+import SimpleRequest from "../src/SimpleRequest.ts";
+import SimpleServer from "../src/SimpleServer.ts";
+import closeQuietly from "../src/util/closeQuietly.ts";
 
 import { assert, assertEquals } from "./test_deps.ts";
 
@@ -40,8 +40,8 @@ const server: SimpleServer = {
         } else {
           sock.send(ev.data);
         }
-      }
-    }
+      },
+    },
   },
   logger: {
     info: (_msg: string) => {
@@ -50,7 +50,7 @@ const server: SimpleServer = {
     error: (_msg: string) => {
       // console.log(msg);
     },
-  }
+  },
 } as unknown as SimpleServer;
 
 const httpPromises: Promise<void>[] = [];
@@ -80,7 +80,7 @@ Deno.test("handleWebSocket", async () => {
   const sock = new WebSocket("ws://localhost:8080/websocket");
   const messages = ["foo", "bar", "baz"];
 
-  sock.onopen = function() {
+  sock.onopen = function () {
     for (const msg of messages) {
       sock.send(msg);
     }
@@ -129,5 +129,4 @@ Deno.test("handleWebSocket", async () => {
   await Promise.allSettled(httpPromises);
   listener.close();
   await serverPromise;
-
 });

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+import { ServerStatus, SimpleRequest, SimpleServer } from "../src/mod.ts";
+
 import { assert, assertEquals } from "./test_deps.ts";
-import { ServerStatus, SimpleRequest, SimpleServer } from "../mod.ts";
 
 type Msg = {
   foo: number;
@@ -165,13 +166,13 @@ Deno.test("SimpleServer_ws_broadcast", async () => {
       path: "/broadcast",
       handler: (req: SimpleRequest): Promise<Response> => {
         req.server.broadcastWebsocket({
-          foo: 42
+          foo: 42,
         });
         return Promise.resolve(new Response());
       },
     },
     websocket: {
-      path: "/websocket"
+      path: "/websocket",
     },
   });
 
@@ -185,9 +186,9 @@ Deno.test("SimpleServer_ws_broadcast", async () => {
   for (let i = 0; i < 3; i++) {
     const sock = new WebSocket("ws://localhost:8080/websocket");
     sock.onopen = async () => {
-      opened +=1;
+      opened += 1;
       if (3 == opened) {
-        const resp = await fetch("http://127.0.0.1:8080/broadcast");;
+        const resp = await fetch("http://127.0.0.1:8080/broadcast");
         await resp.text();
       }
     };

@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-import { SimpleLogger } from "./types.ts";
+import { SimpleLogger } from "../types.ts";
 
-// deno-lint-ignore no-explicit-any
-export default async (logger: SimpleLogger, ev: Deno.RequestEvent, e: any) => {
-  const err = e?.stack || String(e);
-  const msg =
-    `Server Error, method: [${ev.request.method}], url: [${ev.request.url}], error: \n${err}`;
+export default async (logger: SimpleLogger, ev: Deno.RequestEvent) => {
+  const path = new URL(ev.request.url).pathname;
+  const msg = `Not Found, method: [${ev.request.method}], path: [${path}]`;
   logger.error(msg);
   const headers = new Headers();
   headers.set("content-type", "application/json");
@@ -29,13 +27,14 @@ export default async (logger: SimpleLogger, ev: Deno.RequestEvent, e: any) => {
       new Response(
         JSON.stringify(
           {
-            error: "500 Server Error",
+            error: "404 Not Found",
+            path: path,
           },
           null,
           4,
         ),
         {
-          status: 500,
+          status: 404,
           headers,
         },
       ),

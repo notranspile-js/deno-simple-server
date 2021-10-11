@@ -36,9 +36,11 @@ export type SimpleResponse = {
   headers?: Headers;
   body?: BodyInit;
   json?: { [key: string]: JsonValue } | JsonValue[];
-}
+};
 
-export type HttpHandler = (req: SimpleRequest) => Promise<SimpleResponse | Response>;
+export type HttpHandler = (
+  req: SimpleRequest,
+) => Promise<SimpleResponse | Response>;
 
 export type HttpConfig = {
   path: string;
@@ -47,10 +49,10 @@ export type HttpConfig = {
 
 export type WebSocketConfig = {
   path: string;
-  onopen?: (sock: WebSocket, ev: Event) => Promise<void>,
-  onmessage?: (sock: WebSocket, ev: MessageEvent) => Promise<void>,
-  onerror?: (sock: WebSocket, ev: Event | ErrorEvent) => Promise<void>
-  onclose?: (sock: WebSocket, ev: CloseEvent) => Promise<void>
+  onopen?: (sock: WebSocket, ev: Event) => Promise<void>;
+  onmessage?: (sock: WebSocket, ev: MessageEvent) => Promise<void>;
+  onerror?: (sock: WebSocket, ev: Event | ErrorEvent) => Promise<void>;
+  onclose?: (sock: WebSocket, ev: CloseEvent) => Promise<void>;
 };
 
 export type SimpleLogger = {
@@ -68,9 +70,9 @@ export type ServerConfig = {
 };
 
 export type ServerStatus = {
-  listenerActive: boolean,
-  activeConnections: number,
-  activeWebSockets: number
+  listenerActive: boolean;
+  activeConnections: number;
+  activeWebSockets: number;
 };
 
 export type EntryInfo = {

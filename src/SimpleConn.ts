@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import closeQuietly from "./closeQuietly.ts";
 import { SimpleLogger } from "./types.ts";
+import closeQuietly from "./util/closeQuietly.ts";
 
 export default class SimpleConn implements Deno.Closer {
   logger: SimpleLogger;
@@ -24,7 +24,11 @@ export default class SimpleConn implements Deno.Closer {
   op: Promise<void> | null;
   websocket: WebSocket | null;
 
-  constructor(logger: SimpleLogger, tcpConn: Deno.Conn, httpConn: Deno.HttpConn) {
+  constructor(
+    logger: SimpleLogger,
+    tcpConn: Deno.Conn,
+    httpConn: Deno.HttpConn,
+  ) {
     this.logger = logger;
     this.tcpConn = tcpConn;
     this.httpConn = httpConn;
@@ -50,10 +54,9 @@ export default class SimpleConn implements Deno.Closer {
     if (null != this.op) {
       try {
         await this.op;
-      } catch(e) {
+      } catch (e) {
         this.logger.error(String(e));
       }
     }
   }
-
 }

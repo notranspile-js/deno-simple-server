@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-import closeQuietly from "./closeQuietly.ts";
+import handleFile from "./handleFile.ts";
+import handleHttp from "./handleHttp.ts";
+import handleWebSocket from "./handleWebSocket.ts";
 import LoggerWrapper from "./LoggerWrapper.ts";
 import SimpleConn from "./SimpleConn.ts";
 import SimpleListener from "./SimpleListener.ts";
 import SimpleRequest from "./SimpleRequest.ts";
-import handleHttp from "./handleHttp.ts";
-import handleFile from "./handleFile.ts";
-import handleWebSocket from "./handleWebSocket.ts";
-import respond302 from "./respond302.ts";
-import respond404 from "./respond404.ts";
-import respond500 from "./respond500.ts";
 import { JsonValue, ServerConfig, ServerStatus } from "./types.ts";
+import respond302 from "./responses/respond302.ts";
+import respond404 from "./responses/respond404.ts";
+import respond500 from "./responses/respond500.ts";
+import closeQuietly from "./util/closeQuietly.ts";
 
 export default class SimpleServer {
   conf: ServerConfig;

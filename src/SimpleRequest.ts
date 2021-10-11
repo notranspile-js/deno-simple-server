@@ -41,7 +41,7 @@ export default class SimpleRequest {
     return this.ev.request.credentials;
   }
 
-  get destination(): RequestDestination{
+  get destination(): RequestDestination {
     return this.ev.request.destination;
   }
 
@@ -140,15 +140,15 @@ export default class SimpleRequest {
       const resp = new Response(r.body, {
         headers: r.headers,
         status: r.status,
-        statusText: r.statusText
-      })
+        statusText: r.statusText,
+      });
 
       await this.ev.respondWith(resp);
 
       for (const fun of this.onDone) {
         try {
           fun();
-        } catch(e) {
+        } catch (e) {
           this.server.logger.error(String(e));
         }
       }

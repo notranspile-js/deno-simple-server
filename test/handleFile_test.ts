@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import closeQuietly from "../closeQuietly.ts";
-import SimpleConn from "../SimpleConn.ts";
-import SimpleRequest from "../SimpleRequest.ts";
-import SimpleServer from "../SimpleServer.ts";
-import handleFile from "../handleFile.ts";
+import handleFile from "../src/handleFile.ts";
+import SimpleConn from "../src/SimpleConn.ts";
+import SimpleRequest from "../src/SimpleRequest.ts";
+import SimpleServer from "../src/SimpleServer.ts";
+import closeQuietly from "../src/util/closeQuietly.ts";
 
 import { assert, assertEquals, path } from "./test_deps.ts";
 

@@ -14,23 +14,30 @@
  * limitations under the License.
  */
 
-import { SimpleLogger } from "./types.ts";
+import { SimpleLogger } from "../types.ts";
 
-export default async (
-  logger: SimpleLogger,
-  ev: Deno.RequestEvent,
-  location: string,
-) => {
+export default async (logger: SimpleLogger, ev: Deno.RequestEvent) => {
   const path = new URL(ev.request.url).pathname;
-  logger.info(`Redirecting from: [${path}] to [${location}]`);
+  const msg = `Bad Request, method: [${ev.request.method}], path: [${path}]`;
+  logger.error(msg);
   const headers = new Headers();
-  headers.set("location", location);
+  headers.set("content-type", "application/json");
   try {
     await ev.respondWith(
-      new Response("", {
-        status: 302,
-        headers,
-      }),
+      new Response(
+        JSON.stringify(
+          {
+            error: "400 Bad Request",
+            path: path,
+          },
+          null,
+          4,
+        ),
+        {
+          status: 400,
+          headers,
+        },
+      ),
     );
   } catch (_) {
     // ignore

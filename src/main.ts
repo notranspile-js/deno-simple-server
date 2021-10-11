@@ -14,13 +14,28 @@
  * limitations under the License.
  */
 
-export default (closer: Deno.Closer | null) => {
-  if (!closer) {
-    return;
+import SimpleServer from "./SimpleServer.ts";
+
+if (import.meta.main) {
+  let port = 8080;
+  if (Deno.args.length > 0) {
+    port = parseInt(Deno.args[0]);
   }
-  try {
-    closer.close();
-  } catch(_) {
-    // ignore
-  }
+  const server = new SimpleServer({
+    listen: {
+      port: port,
+    },
+    files: {
+      path: "/",
+      rootDirectory: Deno.cwd(),
+      dirListingEnabled: true,
+    },
+    logger: {
+      info: (msg: string) => console.log(msg),
+      error: (msg: string) => console.log(msg),
+    },
+  });
+  console.log(`Server started, url: [http://127.0.0.1:${port}] ...`);
+  // serve forever
+  await server.done;
 }
