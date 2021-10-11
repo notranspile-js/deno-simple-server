@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { posix } from "./deps.ts";
+import * as posix from "./posix.ts";
 
 export default (url: string): string => {
   let normalizedUrl = url;

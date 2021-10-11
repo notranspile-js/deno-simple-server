@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import { posix, readableStreamFromReader } from "./deps.ts";
+import * as posix from "./posix.ts";
 
 import { EntryInfo, FilesConfig } from "./types.ts";
 import SimpleRequest from "./SimpleRequest.ts";
 import dirViewerTemplate from "./dirViewerTemplate.ts";
 import normalizeURL from "./normalizeURL.ts";
+import readableStreamFromReader from "./readableStreamFromReader.ts";
 import respond400 from "./respond400.ts";
 import respond404 from "./respond404.ts";
 import respond500 from "./respond500.ts";
