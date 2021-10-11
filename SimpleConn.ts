@@ -15,39 +15,38 @@
  */
 
 import closeQuietly from "./closeQuietly.ts";
-import SimpleRequest from "./SimpleRequest.ts";
 import { SimpleLogger } from "./types.ts";
 
-export default class TrackingConn {
+export default class SimpleConn implements Deno.Closer {
   logger: SimpleLogger;
   tcpConn: Deno.Conn;
   httpConn: Deno.HttpConn;
-  activeRequests: Set<SimpleRequest>;
   op: Promise<void> | null;
+  websocket: WebSocket | null;
 
   constructor(logger: SimpleLogger, tcpConn: Deno.Conn, httpConn: Deno.HttpConn) {
     this.logger = logger;
     this.tcpConn = tcpConn;
     this.httpConn = httpConn;
-    this.activeRequests = new Set<SimpleRequest>();
     this.op = null;
+    this.websocket = null;
   }
 
   trackOp(op: Promise<void>) {
     this.op = op;
   }
 
+  trackWebSocket(websocket: WebSocket) {
+    this.websocket = websocket;
+  }
+
   close(): void {
+    closeQuietly(this.websocket);
     closeQuietly(this.httpConn);
     closeQuietly(this.tcpConn);
   }
 
   async ensureDone(): Promise<void> {
-    const reqOps = [];
-    for (const req of this.activeRequests) {
-      reqOps.push(req.ensureDone());
-    }
-    await Promise.allSettled(reqOps);
     if (null != this.op) {
       try {
         await this.op;
@@ -55,14 +54,6 @@ export default class TrackingConn {
         this.logger.error(String(e));
       }
     }
-  }
-
-  trackRequest(req: SimpleRequest) {
-    this.activeRequests.add(req);
-  }
-
-  untrackRequest(req: SimpleRequest) {
-    this.activeRequests.delete(req);
   }
 
 }

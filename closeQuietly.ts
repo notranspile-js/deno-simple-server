@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-export default (closer: Deno.Closer) => {
+export default (closer: Deno.Closer | null) => {
   if (!closer) {
     return;
   }

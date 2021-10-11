@@ -14,88 +14,100 @@
  * limitations under the License.
  */
 
-import {
-  acceptWebSocket,
-  isWebSocketCloseEvent,
-  ServerRequest,
-  WebSocket,
-  WebSocketEvent,
-} from "./deps.ts";
-
-import { SimpleLogger, WebSocketConfig, WebSocketHandler } from "./types.ts";
+import closeQuietly from "./closeQuietly.ts";
+import SimpleRequest from "./SimpleRequest.ts";
+import { SimpleLogger, WebSocketConfig } from "./types.ts";
+import respond400 from "./respond400.ts";
 import respond500 from "./respond500.ts";
 
-async function callHandler(
-  logger: SimpleLogger,
-  handler: WebSocketHandler,
-  sock: WebSocket,
-  ev: WebSocketEvent,
-) {
-  try {
-    await handler(sock, ev);
-  } catch (e) {
-    const err = e?.stack || String(e);
-    logger.error(`WebSocket handler error: error: \n${err}`);
-    throw e;
-  }
-}
-
-async function handleSockNothrow(
+async function handleSockNoThrow(
   logger: SimpleLogger,
   conf: WebSocketConfig,
-  active: Set<WebSocket>,
   sock: WebSocket,
+  id: number,
 ) {
+  let activeOpsCount = 0;
+  let closing = false;
+
   try {
-    active.add(sock);
-    logger.info(`WebSocket connection opened, id: [${sock.conn.rid}]`);
-    for await (const ev of sock) {
-      if (conf.handler) {
-        await callHandler(logger, conf.handler, sock, ev);
-      }
-      if (isWebSocketCloseEvent(ev)) {
-        break;
-      }
-    }
-  } catch (_) {
-    // ignore
-  } finally {
-    active.delete(sock);
-    logger.info(`WebSocket connection closed, id: [${sock.conn.rid}]`);
-    if (!sock.isClosed) {
-      try {
-        await sock.close();
-      } catch (_) {
-        // ignore
-      }
-    }
+    await new Promise((resolve) => {
+      const callWithOpCountNoThrow = async (
+        // deno-lint-ignore no-explicit-any
+        fun: any,
+        cb: () => Promise<void>,
+      ) => {
+        if (fun && !closing) {
+          activeOpsCount += 1;
+          try {
+            await cb();
+          } catch (e) {
+            logger.error(String(e));
+          }
+          activeOpsCount -= 1;
+        }
+        if (closing && 0 == activeOpsCount) {
+          resolve(null);
+        }
+      };
+
+      sock.onopen = async (ev: Event) => {
+        await callWithOpCountNoThrow(conf.onopen, async () => {
+          await conf.onopen!(sock, ev);
+        });
+      };
+      sock.onmessage = async (ev: MessageEvent) => {
+        await callWithOpCountNoThrow(conf.onmessage, async () => {
+          await conf.onmessage!(sock, ev);
+        });
+      };
+      sock.onerror = async (ev: Event | ErrorEvent) => {
+        await callWithOpCountNoThrow(conf.onerror, async () => {
+          await conf.onerror!(sock, ev);
+        });
+      };
+      sock.onclose = async (ev: CloseEvent) => {
+        await callWithOpCountNoThrow(conf.onclose, async () => {
+          await conf.onclose!(sock, ev);
+        });
+        logger.info(
+          `WebSocket close message received, id: [${id}],` +
+          ` activeOpsCount: [${activeOpsCount}]`,
+        );
+        closing = true;
+        if (0 == activeOpsCount) {
+          resolve(null);
+        }
+      };
+    });
+  } catch (e) {
+    logger.error(String(e));
   }
 }
 
 export default async (
-  untrack: () => void,
-  logger: SimpleLogger,
-  conf: WebSocketConfig,
-  active: Set<WebSocket>,
-  req: ServerRequest,
+  req: SimpleRequest,
 ) => {
-  const { conn, r: bufReader, w: bufWriter, headers } = req;
-  let sock = null;
+  const logger = req.server.logger;
+  const conf = req.server.conf.websocket!;
+  const conn = req.conn;
+  let sock: WebSocket | null = null;
   try {
-    sock = await acceptWebSocket({
-      conn,
-      bufReader,
-      bufWriter,
-      headers,
-    });
-  } catch (e) {
-    respond500(logger, req, e);
-  }
-  try {
-    if (null != sock) {
-      await handleSockNothrow(logger, conf, active, sock);
+    if ("websocket" != req.headers.get("upgrade")) {
+      await respond400(logger, req.ev);
+      return;
     }
-  } finally {
-    untrack();
+    const upg = Deno.upgradeWebSocket(req.ev.request);
+    await req.ev.respondWith(upg.response);
+    sock = upg.socket;
+  } catch (e) {
+    await respond500(logger, req.ev, e);
+    return;
+  }
+  if (null != sock) {
+    conn.trackWebSocket(sock);
+    logger.info(`WebSocket connection opened, id: [${conn.httpConn.rid}]`);
+    await handleSockNoThrow(logger, conf, sock, conn.httpConn.rid);
+    closeQuietly(sock);
+    logger.info(`WebSocket connection closed, id: [${conn.httpConn.rid}]`);
   }
 };

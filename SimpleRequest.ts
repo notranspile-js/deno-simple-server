@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-import { JsonValue, SimpleResponse } from "./types.ts";
+import SimpleConn from "./SimpleConn.ts";
 import SimpleServer from "./SimpleServer.ts";
+import { JsonValue, SimpleResponse } from "./types.ts";
 
 export default class SimpleRequest {
   server: SimpleServer;
+  conn: SimpleConn;
   ev: Deno.RequestEvent;
   onDone: (() => void)[];
-  op: Promise<void> | null;
 
-  constructor(server: SimpleServer, ev: Deno.RequestEvent) {
+  constructor(server: SimpleServer, conn: SimpleConn, ev: Deno.RequestEvent) {
     this.server = server;
+    this.conn = conn;
     this.ev = ev;
     this.onDone = [];
-    this.op = null;
   }
 
   // forward calls
@@ -154,24 +155,9 @@ export default class SimpleRequest {
     }
   }
 
-  trackOp(op: Promise<void>): void {
-    this.op = op;
-  }
-
   get done(): Promise<void> {
     return new Promise((resolve) => {
       this.onDone.push(resolve);
     });
-  }
-
-  async ensureDone(): Promise<void> {
-    if (null == this.op) {
-      return;
-    }
-    try {
-      await this.op;
-    } catch(e) {
-      this.server.logger.error(String(e));
-    }
   }
 }

@@ -14,54 +14,77 @@
  * limitations under the License.
  */
 
-/*
-import { serve, WebSocket, WebSocketEvent } from "../deps.ts";
+import closeQuietly from "../closeQuietly.ts";
+import SimpleConn from "../SimpleConn.ts";
+import SimpleRequest from "../SimpleRequest.ts";
+import SimpleServer from "../SimpleServer.ts";
 import handleWebSocket from "../handleWebSocket.ts";
-import type { WebSocketHandler } from "../types.ts";
 
 import { assert, assertEquals } from "./test_deps.ts";
 
-const logger = {
-  info: () => {},
-  error: () => {},
-};
+// deno-lint-ignore no-explicit-any
+let resolveClientAwaits: ((value?: any) => void) | null = null;
+// deno-lint-ignore no-explicit-any
+let resolveServerAwaits: ((value?: any) => void) | null = null;
 
-const mirrorHandler: WebSocketHandler = async (
-  sock: WebSocket,
-  ev: WebSocketEvent,
-) => {
-  if (typeof ev === "string") {
-    await sock.send(ev); // mirror
+const server: SimpleServer = {
+  conf: {
+    websocket: {
+      path: "/websocket",
+      onmessage: async (sock: WebSocket, ev: MessageEvent) => {
+        if ("await" == ev.data) {
+          resolveClientAwaits!();
+          await new Promise((resolve) => {
+            resolveServerAwaits = resolve;
+          });
+        } else {
+          sock.send(ev.data);
+        }
+      }
+    }
+  },
+  logger: {
+    info: (_msg: string) => {
+      // console.log(msg);
+    },
+    error: (_msg: string) => {
+      // console.log(msg);
+    },
   }
-};
+} as unknown as SimpleServer;
 
-const activeSockets = new Set<WebSocket>();
+const httpPromises: Promise<void>[] = [];
+const activeConns: SimpleConn[] = [];
+
+async function handleTcpConn(listener: Deno.Listener): Promise<void> {
+  for await (const tcpConn of listener) {
+    const pr = handleHttpConn(tcpConn);
+    httpPromises.push(pr);
+  }
+}
+
+async function handleHttpConn(tcpConn: Deno.Conn): Promise<void> {
+  const httpConn = Deno.serveHttp(tcpConn);
+  const sconn = new SimpleConn(server.logger, tcpConn, httpConn);
+  activeConns.push(sconn);
+  for await (const ev of httpConn) {
+    const req = new SimpleRequest(server, sconn, ev);
+    await handleWebSocket(req);
+  }
+}
 
 Deno.test("handleWebSocket", async () => {
-  const server = serve({ port: 8080 });
-  const serverPromise = (async () => {
-    for await (const req of server) {
-      await handleWebSocket(
-        () => {},
-        logger,
-        {
-          path: "/websocket",
-          handler: mirrorHandler,
-        },
-        activeSockets,
-        req,
-      );
-    }
-  })();
+  const listener = Deno.listen({ port: 8080 });
+  const serverPromise = handleTcpConn(listener);
 
   const sock = new WebSocket("ws://localhost:8080/websocket");
   const messages = ["foo", "bar", "baz"];
 
-  sock.addEventListener("open", function () {
+  sock.onopen = function() {
     for (const msg of messages) {
       sock.send(msg);
     }
-  });
+  };
 
   let idx = 0;
   let resolveClient: (value?: void) => void = () => {};
@@ -70,25 +93,41 @@ Deno.test("handleWebSocket", async () => {
     resolveClient = resolve;
   });
 
-  sock.addEventListener("message", function (ev) {
+  sock.onmessage = (ev) => {
     assert(idx < messages.length);
     assertEquals(messages[idx], ev.data);
     idx++;
     if (messages.length === idx) {
       resolveClient();
     }
-  });
+  };
 
   await clientPromise;
   assertEquals(messages.length, idx);
 
-  sock.close();
-  for (const ws of activeSockets) {
-    await ws.close();
+  // await
+  const pr = new Promise((resolve) => {
+    resolveClientAwaits = resolve;
+  });
+  sock.send("await");
+  await pr;
+  let activeServerSocksCount = 0;
+  for (const sc of activeConns) {
+    if (null != sc.websocket) {
+      activeServerSocksCount += 1;
+    }
   }
-  server.close();
-  // does not resolves for some reason
-  // await serverPromise;
+  assertEquals(activeServerSocksCount, 1);
+  resolveServerAwaits!();
+
+  // cleanup
+
+  sock.close();
+  for (const hc of activeConns) {
+    closeQuietly(hc);
+  }
+  await Promise.allSettled(httpPromises);
+  listener.close();
+  await serverPromise;
 
 });
-*/

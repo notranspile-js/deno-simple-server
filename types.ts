@@ -45,17 +45,13 @@ export type HttpConfig = {
   handler: HttpHandler;
 };
 
-/*
-export type WebSocketHandler = (
-  sock: WebSocket,
-  ev: WebSocketEvent,
-) => Promise<void>;
-
 export type WebSocketConfig = {
   path: string;
-  handler?: WebSocketHandler;
+  onopen?: (sock: WebSocket, ev: Event) => Promise<void>,
+  onmessage?: (sock: WebSocket, ev: MessageEvent) => Promise<void>,
+  onerror?: (sock: WebSocket, ev: Event | ErrorEvent) => Promise<void>
+  onclose?: (sock: WebSocket, ev: CloseEvent) => Promise<void>
 };
-*/
 
 export type SimpleLogger = {
   info: (msg: string) => void;
@@ -66,7 +62,7 @@ export type ServerConfig = {
   listen: Deno.ListenOptions | Deno.ListenOptions;
   files?: FilesConfig;
   http?: HttpConfig;
-  // websocket?: WebSocketConfig;
+  websocket?: WebSocketConfig;
   rootRedirectLocation?: string;
   logger?: SimpleLogger;
 };
@@ -74,7 +70,7 @@ export type ServerConfig = {
 export type ServerStatus = {
   listenerActive: boolean,
   activeConnections: number,
-  activeRequests: number
+  activeWebSockets: number
 };
 
 export type EntryInfo = {

@@ -15,7 +15,7 @@
  */
 
 import { assert, assertEquals } from "./test_deps.ts";
-import { SimpleRequest, SimpleServer, ServerStatus } from "../mod.ts";
+import { ServerStatus, SimpleRequest, SimpleServer } from "../mod.ts";
 
 type Msg = {
   foo: number;
@@ -25,7 +25,7 @@ type Msg = {
 function assertStatus(status: ServerStatus): void {
   assert(!status.listenerActive, "listenerActive");
   assertEquals(status.activeConnections, 0, "activeConnections");
-  assertEquals(status.activeRequests, 0, "activeRequests");
+  assertEquals(status.activeWebSockets, 0, "activeWebSockets");
 }
 
 Deno.test("SimpleServer_json", async () => {
@@ -65,7 +65,7 @@ Deno.test("SimpleServer_await_done", async () => {
   const server = new SimpleServer({
     listen: {
       port: 8080,
-    }
+    },
   });
   let awaited = false;
   setTimeout(() => {
@@ -96,10 +96,10 @@ Deno.test("SimpleServer_slow_handler", async () => {
           resolveRequestHandled = () => {
             resolve({
               json: {
-                foo: 42
+                foo: 42,
               },
             });
-          }
+          };
         });
       },
     },
@@ -109,14 +109,100 @@ Deno.test("SimpleServer_slow_handler", async () => {
     try {
       const resp = await fetch("http://127.0.0.1:8080/");
       await resp.text();
-    } catch(_) {
+    } catch (_) {
       // connection closed before message completed
     }
-  })
+  });
   await requestReceivedPromise;
   const statusBefore = server.status;
-  assertEquals(statusBefore.activeRequests, 1);
+  assertEquals(statusBefore.activeConnections, 1);
   resolveRequestHandled!();
+  await server.close();
+  assertStatus(server.status);
+});
+
+Deno.test("SimpleServer_ws_close", async () => {
+  let resolveRequestHandled: ((value?: null) => void) | null = null;
+  let resolveRequestReceived: ((value?: null) => void) | null = null;
+  const requestReceivedPromise = new Promise((resolve) => {
+    resolveRequestReceived = resolve;
+  });
+  const server = new SimpleServer({
+    listen: {
+      port: 8080,
+    },
+    websocket: {
+      path: "/websocket",
+      onmessage: async () => {
+        resolveRequestReceived!();
+        await new Promise((resolve) => {
+          resolveRequestHandled = resolve;
+        });
+      },
+    },
+  });
+
+  const sock = new WebSocket("ws://localhost:8080/websocket");
+  sock.onopen = () => {
+    sock.send("foo");
+  };
+  await requestReceivedPromise;
+  const statusBefore = server.status;
+  assertEquals(statusBefore.activeConnections, 1);
+  assertEquals(statusBefore.activeWebSockets, 1);
+  resolveRequestHandled!();
+  await server.close();
+  assertStatus(server.status);
+  sock.close();
+});
+
+Deno.test("SimpleServer_ws_broadcast", async () => {
+  const server = new SimpleServer({
+    listen: {
+      port: 8080,
+    },
+    http: {
+      path: "/broadcast",
+      handler: (req: SimpleRequest): Promise<Response> => {
+        req.server.broadcastWebsocket({
+          foo: 42
+        });
+        return Promise.resolve(new Response());
+      },
+    },
+    websocket: {
+      path: "/websocket"
+    },
+  });
+
+  let resolveClient: ((value?: null) => void) | null = null;
+  const broadcastPromise = new Promise((resolve) => {
+    resolveClient = resolve;
+  });
+  let opened = 0;
+  let broadcastReceivedCount = 0;
+  const socks: WebSocket[] = [];
+  for (let i = 0; i < 3; i++) {
+    const sock = new WebSocket("ws://localhost:8080/websocket");
+    sock.onopen = async () => {
+      opened +=1;
+      if (3 == opened) {
+        const resp = await fetch("http://127.0.0.1:8080/broadcast");;
+        await resp.text();
+      }
+    };
+    sock.onmessage = () => {
+      broadcastReceivedCount += 1;
+      if (3 == broadcastReceivedCount) {
+        resolveClient!();
+      }
+    };
+    socks.push(sock);
+  }
+  await broadcastPromise;
+  for (const sock of socks) {
+    sock.close();
+  }
   await server.close();
   assertStatus(server.status);
 });

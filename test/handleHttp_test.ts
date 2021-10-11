@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import closeQuietly from "../closeQuietly.ts";
+import SimpleConn from "../SimpleConn.ts";
 import SimpleRequest from "../SimpleRequest.ts";
 import SimpleServer from "../SimpleServer.ts";
 import handleHttp from "../handleHttp.ts";
@@ -71,7 +73,7 @@ async function handleHttpConn(tcpConn: Deno.Conn): Promise<void> {
   const httpConn = Deno.serveHttp(tcpConn);
   activeConns.push(httpConn);
   for await (const ev of httpConn) {
-    const req = new SimpleRequest(server, ev);
+    const req = new SimpleRequest(server, null as unknown as SimpleConn, ev);
     await handleHttp(req);
   }
 }
@@ -111,7 +113,7 @@ Deno.test("handleHttp", async () => {
   // cleanup
 
   for (const hc of activeConns) {
-    hc.close();
+    closeQuietly(hc);
   }
   await Promise.allSettled(httpPromises);
   listener.close();

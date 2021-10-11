@@ -14,22 +14,23 @@
  * limitations under the License.
  */
 
-import { ServerConfig, ServerStatus } from "./types.ts";
+import closeQuietly from "./closeQuietly.ts";
 import LoggerWrapper from "./LoggerWrapper.ts";
-import TrackingConn from "./TrackingConn.ts";
-import TrackingListener from "./TrackingListener.ts";
+import SimpleConn from "./SimpleConn.ts";
+import SimpleListener from "./SimpleListener.ts";
 import SimpleRequest from "./SimpleRequest.ts";
 import handleHttp from "./handleHttp.ts";
 import handleFile from "./handleFile.ts";
-// import handleWebSocket from "./handleWebSocket.ts";
+import handleWebSocket from "./handleWebSocket.ts";
 import respond302 from "./respond302.ts";
 import respond404 from "./respond404.ts";
 import respond500 from "./respond500.ts";
+import { JsonValue, ServerConfig, ServerStatus } from "./types.ts";
 
 export default class SimpleServer {
   conf: ServerConfig;
   logger: LoggerWrapper;
-  listener: TrackingListener;
+  listener: SimpleListener;
   closing: boolean;
   onClose: (() => void)[];
 
@@ -37,7 +38,7 @@ export default class SimpleServer {
     this.conf = conf;
     this.logger = new LoggerWrapper(conf.logger);
     const denoListener = Deno.listen(conf.listen);
-    this.listener = new TrackingListener(this.logger, denoListener);
+    this.listener = new SimpleListener(this.logger, denoListener);
 
     this.closing = false;
     this.onClose = [];
@@ -52,15 +53,15 @@ export default class SimpleServer {
     }
     this.closing = true;
     const st = this.status;
-    this.logger.info(`Closing server,` +
-      ` active connections: [${st.activeConnections}],` +
-      ` active requests: [${st.activeRequests}] ...`);
+    this.logger.info(
+      `Closing server, active connections: [${st.activeConnections}]`,
+    );
     this.listener.close();
     await this.listener.ensureDone();
     for (const fun of this.onClose) {
       try {
-          fun();
-      } catch(e) {
+        fun();
+      } catch (e) {
         this.logger.error(e);
       }
     }
@@ -77,7 +78,7 @@ export default class SimpleServer {
     return this.listener.status();
   }
 
-  async _spawnListenerOp(listener: TrackingListener): Promise<void> {
+  async _spawnListenerOp(listener: SimpleListener): Promise<void> {
     for (;;) {
       try {
         const tcpConn: Deno.Conn = await listener.denoListener.accept();
@@ -85,7 +86,7 @@ export default class SimpleServer {
           break;
         }
         const httpConn = Deno.serveHttp(tcpConn);
-        const conn = new TrackingConn(this.logger, tcpConn, httpConn);
+        const conn = new SimpleConn(this.logger, tcpConn, httpConn);
         const connOp = this._spawnConnOp(conn);
         conn.trackOp(connOp);
         listener.trackConn(conn);
@@ -98,57 +99,47 @@ export default class SimpleServer {
     }
   }
 
-  async _spawnConnOp(conn: TrackingConn): Promise<void> {
+  async _spawnConnOp(conn: SimpleConn): Promise<void> {
     for (;;) {
       try {
         const ev = await conn.httpConn.nextRequest();
         if (!ev) {
           break;
         }
-        const req = new SimpleRequest(this, ev);
-        const reqOp = this._spawnReqOp(conn, req);
-        req.trackOp(reqOp);
-        conn.trackRequest(req);
-      } catch (e) {
-        if (this.closing) {
+        const req = new SimpleRequest(this, conn, ev);
+        if (this.conf.websocket && req.path === this.conf.websocket.path) {
+          await handleWebSocket(req);
           break;
         }
-        this.logger.error(e);
+        await this._handleReq(req);
+      } catch (e) {
+        if (!this.closing) {
+          this.logger.error(e);
+        }
+        break;
       }
     }
     this.listener.untrackConn(conn);
+    closeQuietly(conn);
   }
 
-  async _spawnReqOp(conn: TrackingConn, req: SimpleRequest): Promise<void> {
+  async _handleReq(req: SimpleRequest): Promise<void> {
     try {
       if (this.conf.http && req.path.startsWith(this.conf.http.path)) {
         await handleHttp(req);
       } else if (this.conf.files && req.path.startsWith(this.conf.files.path)) {
         await handleFile(req);
-        // this.activeHandlers.set(id, pr);
-        // } else if (this.conf.websocket && url === this.conf.websocket.path) {
-        // const pr = handleWebSocket(
-        // untrack,
-        // this.logger,
-        // this.conf.websocket,
-        // this.activeWebSockets,
-        // ev,
-        // );
-        // this.activeHandlers.set(id, pr);
       } else if ("/" === req.path && this.conf.rootRedirectLocation) {
         await respond302(this.logger, req.ev, this.conf.rootRedirectLocation);
       } else {
         await respond404(this.logger, req.ev);
       }
-    } catch(e) {
+    } catch (e) {
       await respond500(this.logger, req.ev, e);
-    } finally {
-      conn.untrackRequest(req);
     }
   }
-  
-  /*
-  async broadcastWebsocket(
+
+  broadcastWebsocket(
     msg: string | { [key: string]: JsonValue } | JsonValue[],
   ) {
     if (this.closing) {
@@ -160,73 +151,10 @@ export default class SimpleServer {
     } else {
       st = String(msg);
     }
-    const promises = [];
-    for (const ws of this.activeWebSockets) {
-      const pr = ws.send(st);
-      promises.push(pr);
-    }
-    try {
-      await Promise.allSettled(promises);
-    } catch (_) {
-      // ignore
-    }
-  }
-  */
-
-  /*
-  async _iterateRequests() {
-    for await (const tcpConn of this.srv) {
-      (async () => {
-        const httpConn = Deno.serveHttp(tcpConn);
-        for await (const ev of httpConn) {
-          const { id, untrack } = this._createUntracker();
-          const path = new URL(ev.request.url).pathname;
-          if (this.conf.http && path.startsWith(this.conf.http.path)) {
-            const pr = handleHttp(untrack, this, this.logger, this.conf.http, ev);
-            this.activeHandlers.set(id, pr);
-          } else if (this.conf.files && path.startsWith(this.conf.files.path)) {
-            const pr = handleFile(untrack, this.logger, this.conf.files, ev);
-            this.activeHandlers.set(id, pr);
-          // } else if (this.conf.websocket && url === this.conf.websocket.path) {
-            const pr = handleWebSocket(
-              untrack,
-              this.logger,
-              this.conf.websocket,
-              this.activeWebSockets,
-              ev,
-            );
-            this.activeHandlers.set(id, pr);
-          } else if ("/" === path && this.conf.rootRedirectLocation) {
-            respond302(this.logger, ev, this.conf.rootRedirectLocation);
-          } else {
-            respond404(this.logger, ev);
-          }
-        }
-      })();
-    }
-  }
-  */
-
-  /*
-  _createUntracker() {
-    const id = this.counter++;
-    const activeHandlers = this.activeHandlers;
-    const untrack = () => {
-      activeHandlers.delete(id);
-    };
-    return { id, untrack };
-  }
-  */
-
-  /*
-  async _closeWebSocket(sock: WebSocket): Promise<void> {
-    try {
-      if (!sock.isClosed) {
-        await sock.close();
+    for (const conn of this.listener.activeConns) {
+      if (null != conn.websocket) {
+        conn.websocket.send(st);
       }
-    } catch(e) {
-      this.logger.error(e);
     }
   }
-  */
 }

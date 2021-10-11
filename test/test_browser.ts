@@ -27,14 +27,14 @@ if (import.meta.main) {
       rootDirectory: path.join(path.dirname(import.meta.url).substring("file://".length), "web"),
       dirListingEnabled: true,
     },
-    // websocket: {
-      // path: "/websocket",
-    // },
+    websocket: {
+      path: "/websocket",
+    },
     http: {
       path: "/api/",
       handler: async (req: SimpleRequest) => {
         const msg = await req.json();
-        await req.server.broadcastWebsocket({
+        req.server.broadcastWebsocket({
           received: msg,
         });
         return {};
@@ -47,7 +47,6 @@ if (import.meta.main) {
     rootRedirectLocation: "/web/index.html"
   });
   console.log("Server started, url: [http://127.0.0.1:8080/] ...");
-
 
   for await (const _ of readLines(Deno.stdin)) {
     break;

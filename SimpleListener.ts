@@ -15,20 +15,20 @@
  */
 
 import closeQuietly from "./closeQuietly.ts";
-import TrackingConn from "./TrackingConn.ts";
+import SimpleConn from "./SimpleConn.ts";
 import { ServerStatus, SimpleLogger } from "./types.ts";
 
-export default class TrackingListener {
+export default class TrackingListener implements Deno.Closer {
   logger: SimpleLogger;
   denoListener: Deno.Listener;
-  activeConns: Set<TrackingConn>;
+  activeConns: Set<SimpleConn>;
   closed: boolean;
   op: Promise<void> | null;
 
   constructor(logger: SimpleLogger, listener: Deno.Listener) {
     this.logger = logger;
     this.denoListener = listener;
-    this.activeConns = new Set<TrackingConn>();
+    this.activeConns = new Set<SimpleConn>();
     this.closed = false;
     this.op = null;
   }
@@ -37,11 +37,11 @@ export default class TrackingListener {
     this.op = op;
   }
 
-  trackConn(conn: TrackingConn) {
+  trackConn(conn: SimpleConn) {
     this.activeConns.add(conn);
   }
 
-  untrackConn(conn: TrackingConn) {
+  untrackConn(conn: SimpleConn) {
     this.activeConns.delete(conn);
   }
 
@@ -57,11 +57,11 @@ export default class TrackingListener {
   }
 
   async ensureDone() {
-    const connOps = [];
-    for (const req of this.activeConns) {
-      connOps.push(req.ensureDone());
+    const ops = [];
+    for (const conn of this.activeConns) {
+      ops.push(conn.ensureDone());
     }
-    await Promise.allSettled(connOps);
+    await Promise.allSettled(ops);
     if (null != this.op) {
       try {
         await this.op;
@@ -74,14 +74,16 @@ export default class TrackingListener {
   status(): ServerStatus {
     const listenerActive = !this.closed;
     const activeConnections = this.activeConns.size;
-    let activeRequests = 0;
+    let activeWebSockets = 0;
     for (const conn of this.activeConns) {
-      activeRequests += conn.activeRequests.size;
+      if (conn.websocket) {
+        activeWebSockets += 1;
+      }
     }
     return {
       listenerActive,
       activeConnections,
-      activeRequests,
+      activeWebSockets,
     };
   }
 }
