@@ -20,7 +20,7 @@ deno run --allow-read --allow-net https://raw.githubusercontent.com/notranspile-
 
 See [main.ts](https://github.com/notranspile-js/deno-simple-server/blob/master/src/main.ts) to customize it.
 
-#### HTTP, Websocket, logging, graceful shutdown
+#### Files, HTTP and Websockets
 
 ```
 import {
