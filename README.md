@@ -1,11 +1,11 @@
 Simple web server for Deno
 ==========================
 
-Web server for [Deno](https://deno.land/) that allows to serve files from filesystem, respond to HTTP JSON calls and work with Websocket connections and broadcasts.
+Web server for [Deno](https://deno.land/) that allows to serve files from filesystem, respond to HTTP JSON calls and work with Websocket connections.
 
 Uses only stable Deno API, has NO DEPENDENCIES, does NOT use stdlib.
 
-Implemented as a thin wrapper over [Deno.serveHttp()](https://doc.deno.land/builtin/stable#Deno.serveHttp) and [Deno.upgradeWebSocket()](https://doc.deno.land/builtin/stable#Deno.upgradeWebSocket). Provides declarative configurations, logging support and tracks the usage of system resources.
+Implemented as a thin wrapper over [`Deno.serveHttp`](https://doc.deno.land/builtin/stable#Deno.serveHttp) and [`Deno.upgradeWebSocket`](https://doc.deno.land/builtin/stable#Deno.upgradeWebSocket). Provides declarative configuration and tracks the usage of system resources.
 
 Not a web-framework, does NOT include requests router or ORM, see [oak](https://deno.land/x/oak) and [aleph](https://deno.land/x/aleph) instead.
 
@@ -23,7 +23,6 @@ See [main.ts](https://github.com/notranspile-js/deno-simple-server/blob/master/s
 #### HTTP, Websocket, logging, graceful shutdown
 
 ```
-import { readLines } from "https://deno.land/std/io/bufio.ts";
 import {
   SimpleResponse,
   SimpleRequest,
@@ -64,7 +63,13 @@ const server = new SimpleServer({
   },
   rootRedirectLocation: "/web/",
 });
+```
 
+#### Graceful shutdown
+
+```
+import { readLines } from "https://deno.land/std/io/bufio.ts";
+const server = new Server(...);
 console.log("Server started, url: [http://127.0.0.1:8080/], press Enter to stop ...");
 for await (const _ of readLines(Deno.stdin)) {
   break;
