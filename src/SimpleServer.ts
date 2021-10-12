@@ -37,7 +37,8 @@ export default class SimpleServer {
   constructor(conf: ServerConfig) {
     this.conf = conf;
     this.logger = new LoggerWrapper(conf.logger);
-    const denoListener = Deno.listen(conf.listen);
+    const denoListener = "certFile" in conf.listen ?
+      Deno.listenTls(conf.listen) : Deno.listen(conf.listen);
     this.listener = new SimpleListener(this.logger, denoListener);
 
     this.closing = false;

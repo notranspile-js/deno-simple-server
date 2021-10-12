@@ -61,7 +61,7 @@ export type SimpleLogger = {
 };
 
 export type ServerConfig = {
-  listen: Deno.ListenOptions | Deno.ListenOptions;
+  listen: Deno.ListenOptions | Deno.ListenTlsOptions;
   files?: FilesConfig;
   http?: HttpConfig;
   websocket?: WebSocketConfig;
