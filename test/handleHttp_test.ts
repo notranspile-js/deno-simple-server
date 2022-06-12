@@ -54,6 +54,8 @@ async function requestHandler(req: SimpleRequest) {
     };
   } else if ("/failure" == req.path) {
     throw new Error("Failure Handler");
+  } else if ("/empty" == req.path) {
+    return;
   } else {
     throw new Error("Test failed.");
   }
@@ -108,6 +110,14 @@ Deno.test("handleHttp", async () => {
     assertEquals(obj, {
       error: "500 Server Error",
     });
+  }
+
+  // empty
+  {
+    const resp = await fetch("http://127.0.0.1:8080/empty");
+    assertEquals(resp.status, 200);
+    const txt = await resp.text();
+    assertEquals(txt, "");
   }
 
   // cleanup

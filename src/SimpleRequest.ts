@@ -130,17 +130,17 @@ export default class SimpleRequest {
     if (r instanceof Response) {
       await this.ev.respondWith(r);
     } else {
-      if (r.json) {
+      if (r?.json) {
         r.body = JSON.stringify(r.json, null, 4);
         if (!r.headers) {
           r.headers = new Headers();
         }
         r.headers.set("content-type", "application/json");
       }
-      const resp = new Response(r.body, {
-        headers: r.headers,
-        status: r.status,
-        statusText: r.statusText,
+      const resp = new Response(r?.body, {
+        headers: r?.headers,
+        status: r?.status,
+        statusText: r?.statusText,
       });
 
       await this.ev.respondWith(resp);
